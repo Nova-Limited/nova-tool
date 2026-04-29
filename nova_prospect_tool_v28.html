@@ -1,0 +1,1325 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Nova Prospect Tool</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --dark: #0a1628; --mid: #1a2a4a; --accent: #e8a020; --accent2: #2a7fd4;
+  --light: #f4f6f9; --border: #dde2ea; --text: #1a2a4a; --muted: #6b7a99;
+  --green: #1a7a4a; --green-light: #e8f5ee; --red: #c0392b;
+}
+body { font-family: 'Georgia', serif; background: #e8eaf0; color: var(--text); min-height: 100vh; }
+.shell { display: grid; grid-template-columns: 330px 1fr; min-height: 100vh; }
+
+/* SIDEBAR */
+.sidebar { background: var(--dark); display: flex; flex-direction: column; position: sticky; top: 0; height: 100vh; overflow-y: auto; }
+.sidebar-top { padding: 1.5rem; border-bottom: 1px solid rgba(255,255,255,0.08); }
+.logo { font-size: 1.8rem; font-weight: 700; color: white; font-family: sans-serif; letter-spacing: -1px; }
+.logo span { color: var(--accent); }
+.logo-sub { font-size: 0.6rem; letter-spacing: 3px; color: rgba(255,255,255,0.3); text-transform: uppercase; font-family: sans-serif; margin-top: 2px; }
+.tabs { display: flex; border-bottom: 1px solid rgba(255,255,255,0.08); }
+.tab { flex: 1; padding: 0.7rem; font-size: 0.68rem; font-family: sans-serif; letter-spacing: 1px; text-transform: uppercase; color: rgba(255,255,255,0.35); cursor: pointer; text-align: center; border: none; background: none; transition: all 0.2s; }
+.tab.active { color: var(--accent); border-bottom: 2px solid var(--accent); }
+.tab-panel { display: none; padding: 1.25rem; flex: 1; overflow-y: auto; }
+.tab-panel.active { display: block; }
+.slabel-s { font-size: 0.6rem; letter-spacing: 2px; text-transform: uppercase; color: rgba(255,255,255,0.28); font-family: sans-serif; margin-bottom: 0.6rem; padding-bottom: 0.4rem; border-bottom: 1px solid rgba(255,255,255,0.07); }
+.fg { margin-bottom: 0.9rem; }
+.fg label { display: block; font-size: 0.68rem; color: rgba(255,255,255,0.42); margin-bottom: 0.3rem; font-family: sans-serif; }
+.fg input, .fg select { width: 100%; background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.11); border-radius: 5px; padding: 0.5rem 0.65rem; color: white; font-size: 0.82rem; font-family: sans-serif; }
+.fg input:focus, .fg select:focus { outline: none; border-color: var(--accent); }
+.fg select option { background: var(--dark); }
+.btn { width: 100%; border: none; border-radius: 5px; padding: 0.7rem; font-size: 0.75rem; font-weight: 700; font-family: sans-serif; letter-spacing: 1px; text-transform: uppercase; cursor: pointer; margin-bottom: 0.4rem; }
+.btn-primary { background: var(--accent); color: var(--dark); }
+.btn-secondary { background: transparent; color: rgba(255,255,255,0.45); border: 1px solid rgba(255,255,255,0.13); }
+.btn-secondary:hover { color: white; border-color: rgba(255,255,255,0.35); }
+
+/* RESULTS */
+.results-header { font-size: 0.65rem; color: rgba(255,255,255,0.28); font-family: sans-serif; margin: 0.6rem 0 0.4rem; }
+.prospect-card { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.08); border-radius: 5px; padding: 0.7rem; margin-bottom: 0.5rem; cursor: pointer; transition: all 0.15s; }
+.prospect-card:hover, .prospect-card.selected { background: rgba(232,160,32,0.1); border-color: rgba(232,160,32,0.35); }
+.pc-name { font-size: 0.8rem; color: white; font-family: sans-serif; font-weight: 600; margin-bottom: 0.15rem; }
+.pc-meta { font-size: 0.67rem; color: rgba(255,255,255,0.38); font-family: sans-serif; }
+.pc-tags { margin-top: 0.35rem; display: flex; gap: 0.3rem; flex-wrap: wrap; }
+.tag { font-size: 0.58rem; padding: 0.12rem 0.4rem; border-radius: 3px; font-family: sans-serif; font-weight: 600; }
+.tag-active { background: rgba(26,122,74,0.3); color: #5dd49a; }
+.tag-dissolved { background: rgba(192,57,43,0.3); color: #f08080; }
+.tag-full { background: rgba(42,127,212,0.25); color: #7ab8f5; }
+.tag-target { background: rgba(232,160,32,0.25); color: #e8a020; }
+.tag-excluded { background: rgba(150,150,150,0.2); color: rgba(255,255,255,0.3); }
+.loading-msg { color: rgba(255,255,255,0.35); font-size: 0.78rem; font-family: sans-serif; text-align: center; padding: 1.5rem 0; }
+.error-msg { color: #f08080; font-size: 0.75rem; font-family: sans-serif; padding: 0.65rem; background: rgba(192,57,43,0.1); border-radius: 5px; margin-top: 0.4rem; }
+.saved-item { background: rgba(255,255,255,0.05); border-radius: 5px; padding: 0.6rem 0.75rem; margin-bottom: 0.35rem; font-family: sans-serif; display: flex; justify-content: space-between; align-items: center; cursor: pointer; }
+.saved-item:hover { background: rgba(255,255,255,0.09); }
+.si-name { font-size: 0.78rem; font-weight: 600; color: white; }
+.si-meta { font-size: 0.63rem; color: rgba(255,255,255,0.32); margin-top: 2px; }
+.del-btn { background: none; border: none; color: rgba(255,100,100,0.45); cursor: pointer; font-size: 0.8rem; }
+.del-btn:hover { color: #f08080; }
+
+/* MAIN */
+.main { padding: 1.5rem; overflow-y: auto; }
+.welcome { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 65vh; color: var(--muted); text-align: center; font-family: sans-serif; }
+.welcome h2 { font-size: 1.1rem; color: var(--text); margin-bottom: 0.5rem; }
+.welcome p { font-size: 0.85rem; max-width: 380px; line-height: 1.65; }
+
+/* PROSPECT DETAIL PANEL */
+.detail-panel { background: white; border-radius: 10px; padding: 1.5rem; box-shadow: 0 2px 20px rgba(0,0,0,0.08); max-width: 820px; margin: 0 auto 1.25rem; }
+.dp-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1rem; }
+.dp-name { font-size: 1.15rem; font-weight: 700; color: var(--dark); font-family: sans-serif; }
+.dp-meta { font-size: 0.75rem; color: var(--muted); font-family: sans-serif; margin-top: 0.2rem; }
+.dp-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.85rem; margin-bottom: 0.75rem; }
+.dp-field label { display: block; font-size: 0.65rem; color: var(--muted); margin-bottom: 0.25rem; font-family: sans-serif; text-transform: uppercase; letter-spacing: 0.5px; }
+.dp-field input, .dp-field select { width: 100%; background: var(--light); border: 1px solid var(--border); color: var(--text); border-radius: 5px; padding: 0.5rem 0.65rem; font-family: sans-serif; font-size: 0.82rem; }
+.dp-field input.roof-input { border: 2px solid var(--accent); font-weight: 700; font-size: 0.9rem; }
+.addr-buttons { display: flex; gap: 0.5rem; margin-bottom: 0.85rem; align-items: center; flex-wrap: wrap; }
+.addr-btn { display: flex; align-items: center; gap: 0.35rem; padding: 0.42rem 0.85rem; border: none; border-radius: 5px; font-size: 0.68rem; font-family: sans-serif; font-weight: 700; letter-spacing: 0.5px; cursor: pointer; transition: opacity 0.15s; }
+.addr-btn:hover { opacity: 0.85; }
+.addr-btn-copy { background: var(--mid); color: white; }
+.addr-btn-maps { background: var(--green); color: white; }
+.addr-btn-earth { background: var(--accent2); color: white; }
+.copy-confirm { font-size: 0.7rem; color: var(--green); font-family: sans-serif; font-weight: 600; display: none; }
+.dp-actions { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0.65rem; }
+.dp-btn { border: none; border-radius: 5px; padding: 0.6rem; font-size: 0.72rem; font-family: sans-serif; font-weight: 700; letter-spacing: 0.5px; cursor: pointer; }
+.dp-btn-gen { background: var(--accent); color: var(--dark); }
+.dp-btn-save { background: var(--green); color: white; }
+.dp-btn-skip { background: var(--light); color: var(--muted); border: 1px solid var(--border); }
+
+/* PROPOSAL */
+.action-bar { max-width: 820px; margin: 0 auto 1rem; display: flex; gap: 0.65rem; justify-content: flex-end; }
+.ab-btn { padding: 0.45rem 1.1rem; border-radius: 5px; font-size: 0.72rem; font-family: sans-serif; font-weight: 700; cursor: pointer; border: none; letter-spacing: 0.5px; }
+.ab-print { background: var(--dark); color: white; }
+.ab-save2 { background: var(--green); color: white; }
+.proposal { background: white; max-width: 820px; margin: 0 auto; box-shadow: 0 4px 40px rgba(0,0,0,0.12); }
+.ph { background: var(--dark); padding: 2.5rem 3rem; position: relative; overflow: hidden; }
+.ph::before { content: ''; position: absolute; top: -40px; right: -40px; width: 180px; height: 180px; border: 35px solid rgba(232,160,32,0.1); border-radius: 50%; }
+.ph::after { content: ''; position: absolute; bottom: -50px; right: 100px; width: 120px; height: 120px; border: 25px solid rgba(42,127,212,0.07); border-radius: 50%; }
+.ph-logo { font-size: 2rem; font-weight: 700; color: white; font-family: sans-serif; letter-spacing: -1px; }
+.ph-logo span { color: var(--accent); }
+.ph-tag { font-size: 0.58rem; letter-spacing: 3px; color: rgba(255,255,255,0.28); text-transform: uppercase; font-family: sans-serif; margin-bottom: 2rem; }
+.ph-to { font-size: 0.82rem; color: rgba(255,255,255,0.42); font-family: sans-serif; margin-bottom: 0.3rem; }
+.ph-co { font-size: 1.75rem; color: white; font-family: sans-serif; font-weight: 700; }
+.ph-addr { font-size: 0.78rem; color: rgba(255,255,255,0.42); font-family: sans-serif; margin-top: 0.2rem; }
+.ph-date { position: absolute; top: 2.5rem; right: 3rem; font-size: 0.68rem; color: rgba(255,255,255,0.28); font-family: sans-serif; text-align: right; }
+.pb { padding: 2.5rem 3rem; }
+.intro { border-left: 4px solid var(--accent); padding: 1rem 1.25rem; background: #fdf8f0; margin-bottom: 2rem; font-size: 0.88rem; line-height: 1.85; }
+.pl { font-size: 0.58rem; letter-spacing: 3px; text-transform: uppercase; color: var(--muted); font-family: sans-serif; margin-bottom: 0.7rem; padding-bottom: 0.4rem; border-bottom: 1px solid var(--border); }
+.metrics { display: grid; grid-template-columns: repeat(3,1fr); gap: 0.7rem; margin-bottom: 2rem; }
+.mc { background: var(--light); border-radius: 7px; padding: 1rem; text-align: center; }
+.mc.hl { background: var(--dark); }
+.mc-l { font-size: 0.62rem; color: var(--muted); font-family: sans-serif; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 0.3rem; }
+.mc.hl .mc-l { color: rgba(255,255,255,0.32); }
+.mc-v { font-size: 1.35rem; font-weight: 700; color: var(--dark); font-family: sans-serif; }
+.mc.hl .mc-v { color: var(--accent); }
+.mc-s { font-size: 0.62rem; color: var(--muted); font-family: sans-serif; margin-top: 0.15rem; }
+.mc.hl .mc-s { color: rgba(255,255,255,0.28); }
+.ct { width: 100%; border-collapse: collapse; margin-bottom: 2rem; font-family: sans-serif; font-size: 0.82rem; }
+.ct th { background: var(--dark); color: white; padding: 0.6rem 0.85rem; text-align: left; font-weight: 500; font-size: 0.67rem; letter-spacing: 0.5px; }
+.ct th:last-child { text-align: right; }
+.ct td { padding: 0.6rem 0.85rem; border-bottom: 1px solid var(--border); }
+.ct td:last-child { text-align: right; font-weight: 500; }
+.ct .sub td { background: var(--light); font-weight: 600; }
+.ct .tot td { background: var(--dark); color: white; font-weight: 700; }
+.pbx { background: var(--green-light); border: 1px solid rgba(26,122,74,0.18); border-radius: 7px; padding: 1.2rem; margin-bottom: 2rem; display: flex; align-items: center; gap: 1.2rem; font-family: sans-serif; }
+.pb-badge { background: var(--green); color: white; border-radius: 7px; padding: 0.65rem 1rem; text-align: center; min-width: 105px; flex-shrink: 0; }
+.pb-num { font-size: 1.35rem; font-weight: 700; }
+.pb-lbl { font-size: 0.58rem; letter-spacing: 1px; text-transform: uppercase; opacity: 0.75; }
+.pb-txt { font-size: 0.83rem; line-height: 1.7; }
+.pb-txt strong { color: var(--green); }
+.chart-wrap { position: relative; width: 100%; height: 250px; margin-bottom: 2rem; }
+.at { width: 100%; border-collapse: collapse; margin-bottom: 2rem; font-family: sans-serif; font-size: 0.76rem; }
+.at th { background: var(--light); padding: 0.48rem 0.7rem; text-align: right; font-size: 0.63rem; color: var(--muted); border-bottom: 2px solid var(--border); font-weight: 500; }
+.at th:first-child { text-align: left; }
+.at td { padding: 0.48rem 0.7rem; border-bottom: 1px solid var(--border); text-align: right; }
+.at td:first-child { text-align: left; color: var(--muted); }
+.at .pos td { color: var(--green); font-weight: 600; }
+.at .pos td:first-child { color: var(--green); }
+.disc { background: var(--light); border-radius: 5px; padding: 0.85rem 1rem; font-size: 0.7rem; color: var(--muted); line-height: 1.6; margin-bottom: 2rem; font-family: sans-serif; font-style: italic; }
+.cta { background: var(--dark); padding: 2rem 3rem; text-align: center; }
+.cta-t { font-size: 1.15rem; color: white; font-family: sans-serif; font-weight: 700; margin-bottom: 0.35rem; }
+.cta-s { font-size: 0.78rem; color: rgba(255,255,255,0.38); font-family: sans-serif; margin-bottom: 1.4rem; }
+.cta-row { display: flex; justify-content: center; gap: 2rem; }
+.cta-item { text-align: center; font-family: sans-serif; }
+.cta-lbl { font-size: 0.58rem; letter-spacing: 2px; text-transform: uppercase; color: rgba(255,255,255,0.28); margin-bottom: 0.25rem; }
+.cta-val { font-size: 0.9rem; color: var(--accent); font-weight: 600; }
+.cta-div { width: 1px; background: rgba(255,255,255,0.07); }
+.pf { padding: 1rem 3rem; background: #f8f9fb; border-top: 1px solid var(--border); display: flex; justify-content: space-between; font-family: sans-serif; font-size: 0.65rem; color: var(--muted); }
+
+@media print {
+  body { background: white; }
+  .shell { display: block; }
+  .sidebar, .action-bar, .detail-panel { display: none; }
+  .main { padding: 0; }
+  .proposal { box-shadow: none; max-width: 100%; }
+}
+</style>
+</head>
+<body>
+<div class="shell">
+<aside class="sidebar">
+  <div class="sidebar-top">
+    <div class="logo">n<span>o</span>va</div>
+    <div class="logo-sub">Prospect &amp; Proposal Tool</div>
+  </div>
+  <div class="tabs">
+    <button class="tab active" onclick="switchTab('search')">Search</button>
+    <button class="tab" onclick="switchTab('manual')">Manual</button>
+    <button class="tab" onclick="switchTab('saved')">Saved</button>
+  </div>
+
+  <!-- SEARCH TAB -->
+  <div class="tab-panel active" id="tab-search">
+    <div class="slabel-s">Target Sector</div>
+    <div class="fg">
+      <label>Sector</label>
+      <select id="s-sector">
+        <option value="warehouse">Warehousing &amp; Storage</option>
+        <option value="logistics">Transport &amp; Logistics</option>
+        <option value="food">Food &amp; Drink Manufacturing</option>
+        <option value="manufacturing">General Manufacturing</option>
+        <option value="metal">Metal &amp; Fabrication</option>
+        <option value="wholesale">Wholesale Distribution</option>
+        <option value="waste">Waste &amp; Recycling</option>
+        <option value="agriculture">Agriculture &amp; Farming</option>
+        <option value="automotive">Automotive &amp; Motor Trade</option>
+        <option value="retail_large">Large Format Retail</option>
+        <option value="construction_co">Construction Companies</option>
+        <option value="utilities">Energy &amp; Utilities</option>
+      </select>
+    </div>
+    <div class="fg">
+      <label>County</label>
+      <select id="s-county">
+        <option value="">-- Select a county --</option>
+        <optgroup label="South West">
+          <option value="Cornwall">Cornwall</option>
+          <option value="Devon">Devon</option>
+          <option value="Somerset">Somerset</option>
+          <option value="Dorset">Dorset</option>
+          <option value="Wiltshire">Wiltshire</option>
+          <option value="Gloucestershire">Gloucestershire</option>
+          <option value="Bristol">Bristol</option>
+        </optgroup>
+        <optgroup label="South East">
+          <option value="Hampshire">Hampshire</option>
+          <option value="Kent">Kent</option>
+          <option value="Sussex">Sussex</option>
+          <option value="Surrey">Surrey</option>
+          <option value="Berkshire">Berkshire</option>
+          <option value="Oxfordshire">Oxfordshire</option>
+          <option value="Buckinghamshire">Buckinghamshire</option>
+          <option value="Hertfordshire">Hertfordshire</option>
+          <option value="Essex">Essex</option>
+        </optgroup>
+        <optgroup label="Greater London">
+          <option value="Greater London">Greater London</option>
+        </optgroup>
+        <optgroup label="East of England">
+          <option value="Norfolk">Norfolk</option>
+          <option value="Suffolk">Suffolk</option>
+          <option value="Cambridgeshire">Cambridgeshire</option>
+          <option value="Bedfordshire">Bedfordshire</option>
+          <option value="Northamptonshire">Northamptonshire</option>
+        </optgroup>
+        <optgroup label="East Midlands">
+          <option value="Leicestershire">Leicestershire</option>
+          <option value="Nottinghamshire">Nottinghamshire</option>
+          <option value="Derbyshire">Derbyshire</option>
+          <option value="Lincolnshire">Lincolnshire</option>
+        </optgroup>
+        <optgroup label="West Midlands">
+          <option value="West Midlands">West Midlands</option>
+          <option value="Staffordshire">Staffordshire</option>
+          <option value="Shropshire">Shropshire</option>
+          <option value="Worcestershire">Worcestershire</option>
+          <option value="Warwickshire">Warwickshire</option>
+          <option value="Herefordshire">Herefordshire</option>
+        </optgroup>
+        <optgroup label="Yorkshire and Humber">
+          <option value="West Yorkshire">West Yorkshire</option>
+          <option value="South Yorkshire">South Yorkshire</option>
+          <option value="North Yorkshire">North Yorkshire</option>
+          <option value="East Yorkshire">East Yorkshire</option>
+        </optgroup>
+        <optgroup label="North West">
+          <option value="Greater Manchester">Greater Manchester</option>
+          <option value="Merseyside">Merseyside</option>
+          <option value="Lancashire">Lancashire</option>
+          <option value="Cheshire">Cheshire</option>
+          <option value="Cumbria">Cumbria</option>
+        </optgroup>
+        <optgroup label="North East">
+          <option value="Tyne and Wear">Tyne and Wear</option>
+          <option value="County Durham">County Durham</option>
+          <option value="Teesside">Teesside</option>
+          <option value="Northumberland">Northumberland</option>
+        </optgroup>
+        <optgroup label="Wales">
+          <option value="South Wales">South Wales</option>
+          <option value="North Wales">North Wales</option>
+        </optgroup>
+        <optgroup label="Scotland">
+          <option value="Central Scotland">Central Scotland</option>
+          <option value="Grampian">Grampian</option>
+          <option value="Highlands">Highlands</option>
+          <option value="Tayside">Tayside</option>
+        </optgroup>
+      </select>
+    </div>
+    <div class="fg">
+      <label>Name contains (optional)</label>
+      <input type="text" id="s-name" placeholder="e.g. storage, foods, logistics" />
+    </div>
+    <button class="btn btn-primary" onclick="searchCompanies()">Search Companies House</button>
+    <div id="search-results"></div>
+    <div id="load-more-wrap" style="display:none;text-align:center;margin-top:0.75rem;">
+      <button onclick="loadMoreResults()" id="load-more-btn"
+        style="background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);color:rgba(255,255,255,0.8);padding:0.6rem 2rem;font-size:0.75rem;cursor:pointer;border-radius:4px;width:100%;letter-spacing:0.05em;">
+        LOAD MORE RESULTS
+      </button>
+    </div>
+  </div>
+
+  <!-- MANUAL TAB -->
+  <div class="tab-panel" id="tab-manual">
+    <div class="slabel-s">Manual Entry</div>
+    <div class="fg"><label>Company Name</label><input type="text" id="m-company" placeholder="e.g. Midlands Distribution Ltd" /></div>
+    <div class="fg"><label>Site Address</label><input type="text" id="m-address" placeholder="Full site address including postcode" /></div>
+    <div class="fg"><label>Contact Name (optional)</label><input type="text" id="m-contact" placeholder="e.g. Mr J. Smith" /></div>
+    <div class="fg">
+      <label>Sector</label>
+      <select id="m-sector">
+        <option value="warehouse">Warehousing / Distribution</option>
+        <option value="logistics">Transport / Logistics</option>
+        <option value="food">Food / Drink Manufacturing</option>
+        <option value="manufacturing">General Manufacturing</option>
+        <option value="metal">Metal / Fabrication</option>
+        <option value="wholesale">Wholesale</option>
+        <option value="waste">Waste / Recycling</option>
+        <option value="agriculture">Agriculture</option>
+        <option value="automotive">Automotive</option>
+        <option value="retail_large">Large Format Retail</option>
+        <option value="construction_co">Construction</option>
+        <option value="utilities">Energy / Utilities</option>
+      </select>
+    </div>
+    <div class="fg"><label>Roof Area (m²)</label><input type="number" id="m-roof" placeholder="e.g. 2000" min="100" /></div>
+    <button class="btn btn-primary" onclick="generateFromManual()">Generate Proposal</button>
+  </div>
+
+  <!-- SAVED TAB -->
+  <div class="tab-panel" id="tab-saved">
+    <div class="slabel-s">Saved Prospects</div>
+    <div id="saved-list"><div class="loading-msg">No saved prospects yet</div></div>
+    <button class="btn btn-secondary" style="margin-top:1rem;" onclick="exportCSV()">Export as CSV</button>
+  </div>
+</aside>
+
+<main class="main" id="main-area">
+  <div class="welcome" id="welcome-screen">
+    <h2>Nova Prospect &amp; Proposal Tool</h2>
+    <p>Search Companies House by sector and location to find qualified prospects with large roof buildings. Click a result to load their details, measure their roof in Google Earth, then generate a branded proposal in seconds.</p>
+  </div>
+
+  <!-- PROSPECT DETAIL -->
+  <div class="detail-panel" id="detail-panel" style="display:none;">
+    <div class="dp-header">
+      <div>
+        <div class="dp-name" id="dp-name"></div>
+        <div class="dp-meta" id="dp-meta"></div>
+      </div>
+      <div id="dp-badges" style="display:flex;gap:0.35rem;flex-wrap:wrap;justify-content:flex-end;max-width:200px;"></div>
+    </div>
+    <div class="dp-grid">
+      <div class="dp-field">
+        <label>Site Address</label>
+        <input type="text" id="dp-address" placeholder="Searching for address..." />
+      </div>
+      <div class="dp-field">
+        <label>Sector Type</label>
+        <select id="dp-sector">
+          <option value="warehouse">Warehousing / Distribution</option>
+          <option value="logistics">Transport / Logistics</option>
+          <option value="food">Food / Drink Manufacturing</option>
+          <option value="manufacturing">General Manufacturing</option>
+          <option value="metal">Metal / Fabrication</option>
+          <option value="wholesale">Wholesale</option>
+          <option value="waste">Waste / Recycling</option>
+          <option value="agriculture">Agriculture</option>
+          <option value="automotive">Automotive</option>
+          <option value="retail_large">Large Format Retail</option>
+          <option value="construction_co">Construction</option>
+          <option value="utilities">Energy / Utilities</option>
+        </select>
+      </div>
+    </div>
+    <div class="addr-buttons">
+      <button class="addr-btn addr-btn-copy" onclick="copyAddress()">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+        Copy Address
+      </button>
+      <button class="addr-btn addr-btn-maps" onclick="openMaps()">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="10" r="3"/><path d="M12 2a8 8 0 00-8 8c0 5.4 7.05 11.5 7.65 12a.5.5 0 00.7 0C13 21.5 20 15.4 20 10a8 8 0 00-8-8z"/></svg>
+        Google Maps
+      </button>
+      <button class="addr-btn addr-btn-earth" onclick="openEarth()">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 010 20M12 2a15.3 15.3 0 000 20"/></svg>
+        Google Earth
+      </button>
+      <span class="copy-confirm" id="copy-confirm">Copied!</span>
+    </div>
+    <div class="dp-grid">
+      <div class="dp-field">
+        <label>Roof Area m² (from Google Earth)</label>
+        <input type="number" id="dp-roof" class="roof-input" placeholder="Enter m² here" min="100" />
+      </div>
+      <div class="dp-field">
+        <label>Contact Name (optional)</label>
+        <input type="text" id="dp-contact" placeholder="e.g. Mr J. Smith" />
+      </div>
+    </div>
+    <div class="dp-actions">
+      <button class="dp-btn dp-btn-gen" onclick="generateFromDetail()">Generate Proposal</button>
+      <button class="dp-btn dp-btn-save" onclick="saveCurrentProspect()">Save Prospect</button>
+      <button class="dp-btn dp-btn-skip" onclick="clearDetail()">Clear</button>
+    </div>
+  </div>
+
+  <div id="proposal-output" style="display:none;"></div>
+</main>
+</div>
+
+<script>
+const CH_PROXY = 'https://nova-ch-proxy.jamie-b41.workers.dev';
+const AT_BASE = 'appGHNTIoF2d6KxnG';
+const AT_TABLE = 'tblDfWJzdFQEazPXT';
+const AT_URL = `${CH_PROXY}/airtable/v0/${AT_BASE}/${AT_TABLE}`;
+const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const MONTHLY_F = [0.33,0.48,0.81,1.06,1.30,1.34,1.35,1.18,0.89,0.62,0.37,0.27];
+const MF_TOTAL = MONTHLY_F.reduce((a,b)=>a+b,0);
+
+const SECTOR_DATA = {
+  warehouse:      { label: 'Warehousing & Distribution', kwh: 55 },
+  logistics:      { label: 'Transport & Logistics', kwh: 60 },
+  food:           { label: 'Food & Drink Manufacturing', kwh: 175 },
+  manufacturing:  { label: 'General Manufacturing', kwh: 120 },
+  metal:          { label: 'Metal & Fabrication', kwh: 110 },
+  wholesale:      { label: 'Wholesale Distribution', kwh: 65 },
+  waste:          { label: 'Waste & Recycling', kwh: 85 },
+  agriculture:    { label: 'Agriculture & Farming', kwh: 45 },
+  automotive:     { label: 'Automotive & Motor Trade', kwh: 90 },
+  retail_large:   { label: 'Large Format Retail', kwh: 160 },
+  construction_co:{ label: 'Construction', kwh: 80 },
+  utilities:      { label: 'Energy & Utilities', kwh: 95 }
+};
+
+
+// County to towns mapping - towns match Companies House locality field values
+const COUNTY_TOWNS = {
+  'Cornwall':         ['Truro','Penzance','Bodmin','Camborne','Redruth','St Austell','Falmouth','Newquay'],
+  'Devon':            ['Plymouth','Exeter','Torquay','Paignton','Newton Abbot','Barnstaple','Tiverton','Exmouth','Bideford'],
+  'Somerset':         ['Taunton','Bridgwater','Yeovil','Weston-super-Mare','Bath','Frome','Glastonbury'],
+  'Dorset':           ['Bournemouth','Poole','Dorchester','Weymouth','Christchurch','Blandford Forum'],
+  'Wiltshire':        ['Swindon','Salisbury','Chippenham','Trowbridge','Devizes','Melksham'],
+  'Gloucestershire':  ['Gloucester','Cheltenham','Stroud','Cirencester','Tewkesbury'],
+  'Bristol':          ['Bristol'],
+  'Hampshire':        ['Southampton','Portsmouth','Basingstoke','Winchester','Eastleigh','Fareham','Gosport','Andover'],
+  'Kent':             ['Maidstone','Canterbury','Medway','Dartford','Folkestone','Ashford','Tonbridge','Dover','Sittingbourne'],
+  'Sussex':           ['Brighton','Eastbourne','Worthing','Crawley','Hastings','Horsham','Chichester'],
+  'Surrey':           ['Guildford','Woking','Croydon','Epsom','Reigate','Camberley'],
+  'Berkshire':        ['Reading','Slough','Bracknell','Windsor','Newbury','Wokingham'],
+  'Oxfordshire':      ['Oxford','Abingdon','Banbury','Bicester','Didcot'],
+  'Buckinghamshire':  ['Milton Keynes','Aylesbury','High Wycombe','Slough','Amersham'],
+  'Hertfordshire':    ['Watford','St Albans','Hemel Hempstead','Stevenage','Luton','Hatfield'],
+  'Essex':            ['Chelmsford','Colchester','Southend-on-Sea','Basildon','Harlow','Braintree','Brentwood'],
+  'Greater London':   ['London','Barking','Enfield','Croydon','Wembley','Romford','Ilford'],
+  'Norfolk':          ['Norwich','Kings Lynn','Great Yarmouth','Thetford','Dereham'],
+  'Suffolk':          ['Ipswich','Bury St Edmunds','Lowestoft','Felixstowe','Haverhill'],
+  'Cambridgeshire':   ['Cambridge','Peterborough','Ely','Huntingdon','St Ives'],
+  'Bedfordshire':     ['Luton','Bedford','Dunstable','Leighton Buzzard'],
+  'Northamptonshire': ['Northampton','Kettering','Corby','Wellingborough','Daventry'],
+  'Leicestershire':   ['Leicester','Loughborough','Hinckley','Melton Mowbray','Market Harborough'],
+  'Nottinghamshire':  ['Nottingham','Mansfield','Newark','Worksop','Kirkby-in-Ashfield'],
+  'Derbyshire':       ['Derby','Chesterfield','Ilkeston','Swadlincote','Buxton'],
+  'Lincolnshire':     ['Lincoln','Grimsby','Scunthorpe','Boston','Grantham','Spalding'],
+  'West Midlands':    ['Birmingham','Coventry','Wolverhampton','Walsall','Dudley','Solihull','West Bromwich'],
+  'Staffordshire':    ['Stoke-on-Trent','Stafford','Burton upon Trent','Cannock','Tamworth','Lichfield'],
+  'Shropshire':       ['Shrewsbury','Telford','Oswestry','Bridgnorth'],
+  'Worcestershire':   ['Worcester','Kidderminster','Redditch','Bromsgrove','Droitwich'],
+  'Warwickshire':     ['Coventry','Leamington Spa','Nuneaton','Rugby','Stratford-upon-Avon'],
+  'Herefordshire':    ['Hereford','Leominster','Ross-on-Wye'],
+  'West Yorkshire':   ['Leeds','Bradford','Huddersfield','Halifax','Wakefield','Dewsbury','Keighley'],
+  'South Yorkshire':  ['Sheffield','Doncaster','Rotherham','Barnsley'],
+  'North Yorkshire':  ['York','Scarborough','Harrogate','Middlesbrough','Northallerton'],
+  'East Yorkshire':   ['Hull','Beverley','Bridlington','Goole'],
+  'Greater Manchester':['Manchester','Salford','Bolton','Oldham','Stockport','Wigan','Bury','Rochdale'],
+  'Merseyside':       ['Liverpool','Birkenhead','Southport','St Helens','Runcorn','Widnes'],
+  'Lancashire':       ['Preston','Blackburn','Blackpool','Burnley','Lancaster','Accrington'],
+  'Cheshire':         ['Chester','Warrington','Crewe','Macclesfield','Ellesmere Port','Runcorn'],
+  'Cumbria':          ['Carlisle','Barrow-in-Furness','Kendal','Whitehaven','Penrith'],
+  'Tyne and Wear':    ['Newcastle upon Tyne','Sunderland','Gateshead','South Shields','Tynemouth'],
+  'County Durham':    ['Durham','Darlington','Hartlepool','Bishop Auckland','Newton Aycliffe'],
+  'Teesside':         ['Middlesbrough','Stockton-on-Tees','Redcar','Billingham'],
+  'Northumberland':   ['Ashington','Morpeth','Blyth','Hexham'],
+  'South Wales':      ['Cardiff','Swansea','Newport','Bridgend','Pontypridd','Merthyr Tydfil','Neath'],
+  'North Wales':      ['Wrexham','Rhyl','Llandudno','Colwyn Bay','Bangor'],
+  'Central Scotland': ['Glasgow','Edinburgh','Stirling','Paisley','Dumbarton','Falkirk','Livingston'],
+  'Grampian':         ['Aberdeen','Inverness','Elgin','Fraserburgh','Peterhead'],
+  'Highlands':        ['Inverness','Fort William','Wick','Thurso'],
+  'Tayside':          ['Dundee','Perth','Arbroath','Montrose'],
+};
+
+// SIC codes for large-roof target sectors only
+// These are the Companies House 5-digit codes most likely to indicate
+// companies that OWN OR OCCUPY large single-storey industrial buildings
+
+const SECTOR_SICS = {
+  warehouse: [
+    '52100', '52240', '52290', '52210',
+  ],
+  logistics: [
+    '49410', '49420', '49390', '49320', '49311',
+  ],
+  food: [
+    '10110', '10120', '10200', '10390', '10510',
+    '10610', '10710', '10810', '10850', '10890',
+    '10910', '11050', '11070',
+  ],
+  manufacturing: [
+    '25110', '25120', '25610', '25990', '28110',
+    '28290', '28300', '28410', '29100', '30110',
+    '22210', '22220', '23610', '24100', '31090',
+  ],
+  metal: [
+    '25110', '25120', '25500', '25610', '25620',
+    '25710', '25730', '25910', '25990', '24100',
+    '24200', '24310', '24320',
+  ],
+  wholesale: [
+    '46390', '46900', '46610', '46690', '46710',
+    '46720', '46730', '46740', '46310', '46320',
+  ],
+  waste: [
+    '38110', '38120', '38210', '38220', '38310', '38320',
+  ],
+  agriculture: [
+    '01410', '01420', '01460', '01470', '01500',
+    '01110', '01130', '01620',
+  ],
+  automotive: [
+    '45111', '45112', '45190', '45200', '45310', '45400',
+  ],
+  retail_large: [
+    '47110', '47190', '47521', '47522', '47530',
+    '47540', '47591', '47760',
+  ],
+  construction_co: [
+    '41201', '41202', '42110', '43120', '43210',
+    '43220', '43290', '43910', '43999',
+  ],
+  utilities: [
+    '35110', '35120', '35130', '35210', '35220',
+    '36000', '37000',
+  ],
+};
+
+// Human-readable SIC descriptions for display
+const SIC_DESCRIPTIONS = {
+  '52100': 'Warehousing & Storage', '52210': 'Transport Support', '52290': 'Transport Support',
+  '52240': 'Cargo Handling', '49410': 'Road Freight / Haulage', '49420': 'Removal Services',
+  '10110': 'Meat Processing', '10120': 'Poultry Processing', '10200': 'Fish Processing',
+  '10410': 'Oils & Fats Mfg', '10510': 'Dairy Manufacturing', '10610': 'Grain Milling',
+  '10710': 'Bread & Bakery', '10810': 'Sugar Manufacture', '10850': 'Prepared Meals',
+  '10890': 'Food Manufacturing', '10910': 'Animal Feed Mfg', '11010': 'Distilling',
+  '11050': 'Beer Brewing', '11070': 'Soft Drinks Mfg',
+  '25110': 'Metal Structures', '25120': 'Metal Doors/Windows', '25500': 'Metal Forging',
+  '25610': 'Metal Treatment', '25620': 'Machining', '25990': 'Fabricated Metal',
+  '24100': 'Steel Production', '24200': 'Steel Tubes',
+  '28110': 'Engine Manufacture', '28290': 'General Machinery', '28300': 'Agricultural Machinery',
+  '28410': 'Machine Tools', '29100': 'Motor Vehicle Mfg', '30110': 'Shipbuilding',
+  '31090': 'Furniture Mfg', '32990': 'Other Manufacturing',
+  '46190': 'Wholesale (General)', '46210': 'Wholesale Grain', '46310': 'Wholesale Fruit/Veg',
+  '46320': 'Wholesale Meat', '46390': 'Wholesale Food', '46610': 'Wholesale Machinery',
+  '46690': 'Wholesale Equipment', '46710': 'Wholesale Fuels', '46720': 'Wholesale Metals',
+  '46730': 'Wholesale Timber', '46740': 'Wholesale Hardware', '46900': 'Non-spec Wholesale',
+  '38110': 'Waste Collection', '38210': 'Waste Treatment', '38320': 'Recycling',
+  '39000': 'Remediation',
+  '01110': 'Arable Farming', '01410': 'Dairy Farming', '01460': 'Pig Farming',
+  '01470': 'Poultry Farming', '01500': 'Mixed Farming', '01620': 'Post-harvest Activities',
+  '45111': 'Car Sales (New)', '45112': 'Car Sales (Used)', '45190': 'Other Vehicle Sales',
+  '45200': 'Vehicle Repair', '45310': 'Motor Parts Wholesale',
+  '47110': 'Supermarket / Large Retail', '47190': 'Non-spec Retail', '47521': 'Hardware Retail',
+  '47522': 'Building Materials Retail', '47760': 'Garden Centre',
+  '41201': 'Commercial Building', '41202': 'House Building', '42110': 'Road Construction',
+  '43120': 'Site Preparation', '43210': 'Electrical Contractor', '43220': 'Plumbing/Heating',
+  '43910': 'Roofing', '43999': 'Specialist Construction',
+  '35110': 'Electricity Generation', '35120': 'Electricity Transmission',
+  '35210': 'Gas Manufacture', '35220': 'Gas Distribution', '36000': 'Water Treatment',
+};
+
+// Keywords that indicate irrelevant companies with small or no roof area
+const EXCLUDE_KEYWORDS = [
+  'rugby','football','cricket','tennis','golf','sports club','athletic','fc ','afc ',
+  'church','chapel','mosque','temple','synagogue','cathedral','parish',
+  'school','academy','college','university','nursery','playgroup','preschool',
+  'hospice','care home','nursing home','dental','dentist','optician','pharmacy','chemist',
+  'pub ','public house','bar ','nightclub','restaurant','cafe','coffee','bistro','canteen',
+  'hotel','motel','bed and breakfast','b&b','guest house',
+  'solicitor','barrister','accountant','consultant','advisor','advisory',
+  'estate agent','letting agent','property management',
+  'charity','charitable','foundation','trust ','community interest',
+  'flat ','apartment','residential','housing association',
+  'hairdress','salon','beauty','tattoo','barber',
+  'insurance','financial services','mortgage','pension','investment fund',
+  'media','advertising','marketing agency','pr agency',
+  'theatre','cinema','museum','gallery','library',
+  'parish council','town council','district council'
+];
+
+let currentProspect = null;
+let savedProspects = JSON.parse(localStorage.getItem('nova_prospects_v2') || '[]');
+let paybackChart = null;
+
+function switchTab(t) {
+  document.querySelectorAll('.tab').forEach(e => e.classList.remove('active'));
+  document.querySelectorAll('.tab-panel').forEach(e => e.classList.remove('active'));
+  document.querySelector(`.tab[onclick="switchTab('${t}')"]`).classList.add('active');
+  document.getElementById('tab-' + t).classList.add('active');
+  if (t === 'saved') renderSaved();
+}
+
+function fmt(n) { return '£' + Math.round(n).toLocaleString(); }
+function fmtN(n) { return Math.round(n).toLocaleString(); }
+
+function isExcluded(name) {
+  const lower = (name || '').toLowerCase();
+  return EXCLUDE_KEYWORDS.some(kw => lower.includes(kw));
+}
+
+function matchesSector(sic, sectorKey) {
+  if (!sic || !sic.length) return true; // if no SIC data, allow through
+  const targets = SECTOR_SICS[sectorKey] || [];
+  return sic.some(s => targets.some(t => s.startsWith(t)));
+}
+
+// Pagination state
+let _towns    = [];
+let _townIdx  = 0;
+let _sicList  = [];
+let _sicIdx   = 0;
+let _startIdx = 0;
+let _nameQ    = '';
+let _sector   = '';
+let _county   = '';
+let _seen     = new Set();
+let _total    = 0;
+
+function _sicLabel(sic) {
+  var c = sic ? sic.toString().replace(/\s/g,'') : '';
+  return SIC_DESCRIPTIONS[c] || ('SIC ' + c);
+}
+
+function _removeAgents(items) {
+  var cnt = {};
+  items.forEach(function(c) {
+    var a = ((c.registered_office_address||{}).address_line_1||'').toLowerCase().trim();
+    if (a.length > 5) cnt[a] = (cnt[a]||0) + 1;
+  });
+  var bad = new Set(Object.keys(cnt).filter(function(a){ return cnt[a] >= 4; }));
+  if (!bad.size) return items;
+  var filtered = items.filter(function(c) {
+    var a = ((c.registered_office_address||{}).address_line_1||'').toLowerCase().trim();
+    return !bad.has(a);
+  });
+  return filtered.length >= Math.ceil(items.length / 3) ? filtered : items;
+}
+
+async function searchCompanies() {
+  _sector   = document.getElementById('s-sector').value;
+  _county   = document.getElementById('s-county').value;
+  _nameQ    = document.getElementById('s-name').value.trim();
+  var el    = document.getElementById('search-results');
+  var lm    = document.getElementById('load-more-wrap');
+
+  if (!_county) {
+    el.innerHTML = '<div class="error-msg">Please select a county to search.</div>';
+    return;
+  }
+
+  _towns    = COUNTY_TOWNS[_county] || [_county];
+  _sicList  = SECTOR_SICS[_sector] || [];
+  _townIdx  = 0;
+  _sicIdx   = 0;
+  _startIdx = 0;
+  _seen     = new Set();
+  _total    = 0;
+
+  el.innerHTML = '<div class="loading-msg">Searching ' + _county + ' by SIC code...</div>';
+  lm.style.display = 'none';
+
+  await _fetchBatch(el, true);
+}
+
+async function loadMoreResults() {
+  var el  = document.getElementById('search-results');
+  var btn = document.getElementById('load-more-btn');
+  btn.textContent = 'Loading...';
+  btn.disabled = true;
+  await _fetchBatch(el, false);
+  btn.textContent = 'LOAD MORE RESULTS';
+  btn.disabled = false;
+}
+
+async function _fetchBatch(el, isFirst) {
+  var lm = document.getElementById('load-more-wrap');
+
+  // DEBUG: show current state
+  var dbg = 'townIdx=' + _townIdx + '/' + _towns.length +
+            ' sicIdx=' + _sicIdx + '/' + _sicList.length +
+            ' start=' + _startIdx + ' total=' + _total;
+
+  if (_townIdx >= _towns.length) {
+    lm.style.display = 'none';
+    var ce0 = document.getElementById('res-count');
+    if (ce0) ce0.textContent = _total + ' results — all searched. ' + dbg;
+    else el.innerHTML += '<div class="loading-msg">All done: ' + _total + ' results. ' + dbg + '</div>';
+    return;
+  }
+
+  if (_sicIdx >= _sicList.length) {
+    _townIdx++;
+    _sicIdx = 0;
+    _startIdx = 0;
+    await _fetchBatch(el, isFirst);
+    return;
+  }
+
+  var town = _towns[_townIdx];
+  var sic  = _sicList[_sicIdx];
+
+  // Show progress
+  if (isFirst) {
+    el.innerHTML = '<div class="loading-msg">Searching ' + town + ' for SIC ' + sic + '... (' + dbg + ')</div>';
+  }
+
+  try {
+    var params = new URLSearchParams();
+    params.append('sic_codes', sic);
+    params.append('location', town);
+    params.append('company_status', 'active');
+    params.append('size', '20');
+    params.append('start_index', String(_startIdx));
+    if (_nameQ) params.append('company_name', _nameQ);
+
+    var url = CH_PROXY + '/advanced-search/companies?' + params.toString();
+
+    var resp = await fetch(url);
+
+    if (resp.status === 404) {
+      // Invalid SIC - skip
+      _sicIdx++;
+      _startIdx = 0;
+      await _fetchBatch(el, isFirst);
+      return;
+    }
+
+    if (!resp.ok) {
+      el.innerHTML += '<div class="error-msg">HTTP ' + resp.status + ' for ' + url + '</div>';
+      _sicIdx++;
+      _startIdx = 0;
+      await _fetchBatch(el, isFirst);
+      return;
+    }
+
+    var data = await resp.json();
+    var rawItems = data.items || [];
+
+    // Show raw count before filtering
+    if (isFirst && rawItems.length > 0) {
+      el.innerHTML = '<div class="loading-msg">Found ' + rawItems.length + ' raw results in ' + town + ' SIC ' + sic + ' — filtering...</div>';
+    }
+
+    var items = rawItems.filter(function(c) {
+      if (!c.company_number || _seen.has(c.company_number)) return false;
+      _seen.add(c.company_number);
+      return true;
+    });
+
+    items = items.filter(function(c) { return !isExcluded(c.company_name || ''); });
+    items = _removeAgents(items);
+
+    // Advance cursor based on raw count
+    if (rawItems.length < 20) {
+      _sicIdx++;
+      _startIdx = 0;
+    } else {
+      _startIdx += 20;
+    }
+
+    _total += items.length;
+
+    if (items.length === 0) {
+      // Continue searching
+      if (_sicIdx < _sicList.length || _townIdx < _towns.length) {
+        await _fetchBatch(el, isFirst);
+      } else {
+        el.innerHTML = '<div class="error-msg">No results after filtering. Raw API is working. Try different sector.</div>';
+      }
+      return;
+    }
+
+    // Render results
+    var sicLbl = _sicLabel(sic);
+    var status = _total + ' results in ' + _county + ' — ' + town + ' (' + sicLbl + ')';
+    if (isFirst) {
+      el.innerHTML = '<div class="results-header" id="res-count">' + status + '</div>';
+    } else {
+      var ce2 = document.getElementById('res-count');
+      if (ce2) ce2.textContent = status;
+    }
+
+    items.forEach(function(c) {
+      var name    = c.company_name || '';
+      var num     = c.company_number || '';
+      var addr    = c.registered_office_address || {};
+      var addrStr = [addr.address_line_1, addr.locality, addr.postal_code].filter(Boolean).join(', ');
+      var sicsF   = c.sic_codes || [];
+      var sl      = sicsF.length ? _sicLabel(sicsF[0]) : sicLbl;
+
+      var card = document.createElement('div');
+      card.className = 'prospect-card';
+      var tags = '<span class="tag tag-active">active</span>';
+      tags += '<span class="tag tag-target">' + sl + '</span>';
+
+      card.innerHTML =
+        '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:0.5rem;">' +
+          '<div class="pc-name" style="flex:1;"></div>' +
+          '<div style="display:flex;gap:0.3rem;flex-shrink:0;">' +
+            '<button class="cbtn" style="background:rgba(255,255,255,0.1);border:none;border-radius:4px;padding:0.25rem 0.5rem;color:rgba(255,255,255,0.7);font-size:0.62rem;cursor:pointer;white-space:nowrap;">Copy</button>' +
+            '<button class="sbtn" style="background:rgba(232,160,32,0.2);border:none;border-radius:4px;padding:0.25rem 0.5rem;color:#e8a020;font-size:0.62rem;cursor:pointer;white-space:nowrap;">Search</button>' +
+          '</div>' +
+        '</div>' +
+        '<div class="pc-meta"></div>' +
+        '<div class="pc-meta"></div>' +
+        '<div class="pc-tags">' + tags + '</div>';
+
+      card.querySelector('.pc-name').textContent = name;
+      var metas = card.querySelectorAll('.pc-meta');
+      metas[0].textContent = addrStr || 'Address pending lookup';
+      metas[1].textContent = 'No. ' + num + ' | ' + (c.company_type || '');
+
+      var companyName = name;
+      card.querySelector('.cbtn').addEventListener('click', function(e) {
+        e.stopPropagation(); copyName(companyName);
+      });
+      card.querySelector('.sbtn').addEventListener('click', function(e) {
+        e.stopPropagation(); searchOnline(companyName);
+      });
+
+      var norm = {
+        title: name, company_number: num, company_type: c.company_type || '',
+        company_status: 'active', date_of_creation: c.date_of_creation || '',
+        registered_office_address: addr, sic_codes: sicsF
+      };
+      card.onclick = function() { selectProspect(norm, card, _sector); };
+      el.appendChild(card);
+    });
+
+    var moreRemain = _sicIdx < _sicList.length || _townIdx < _towns.length;
+    lm.style.display = moreRemain ? 'block' : 'none';
+
+  } catch(e) {
+    el.innerHTML = '<div class="error-msg">Exception: ' + e.message + ' | ' + dbg + '</div>';
+  }
+}
+
+async function selectProspect(company, cardEl, sectorKey) {
+  document.querySelectorAll('.prospect-card').forEach(c => c.classList.remove('selected'));
+  cardEl.classList.add('selected');
+
+  currentProspect = {
+    name: company.title,
+    address: '',
+    number: company.company_number,
+    type: company.company_type,
+    status: company.company_status
+  };
+
+  document.getElementById('welcome-screen').style.display = 'none';
+  document.getElementById('proposal-output').style.display = 'none';
+  document.getElementById('detail-panel').style.display = 'block';
+
+  document.getElementById('dp-name').textContent = company.title;
+  document.getElementById('dp-meta').textContent = `Company No. ${company.company_number} | ${company.company_type || ''} | Incorporated: ${company.date_of_creation || 'N/A'}`;
+  document.getElementById('dp-address').value = 'Looking up address...';
+  document.getElementById('dp-address').style.color = '#999';
+  document.getElementById('dp-roof').value = '';
+  document.getElementById('dp-contact').value = '';
+
+  // Set sector
+  if (sectorKey) {
+    const sel = document.getElementById('dp-sector');
+    if (sel) sel.value = sectorKey;
+  }
+
+  // Build badges
+  const badgesEl = document.getElementById('dp-badges');
+  badgesEl.innerHTML = `<span class="tag tag-active">${company.company_status}</span>`;
+
+  document.getElementById('main-area').scrollTo(0, 0);
+
+  // Fetch full company profile for address + account type
+  try {
+    const resp = await fetch(`${CH_PROXY}/company/${company.company_number}`);
+    if (resp.ok) {
+      const d = await resp.json();
+      const ra = d.registered_office_address;
+      if (ra) {
+        const addr = [ra.address_line_1, ra.address_line_2, ra.locality, ra.region, ra.postal_code].filter(Boolean).join(', ');
+        currentProspect.address = addr;
+        document.getElementById('dp-address').value = addr;
+        document.getElementById('dp-address').style.color = '';
+      }
+      // Account type badge
+      if (d.accounts && d.accounts.last_accounts) {
+        const t = (d.accounts.last_accounts.type || '').toLowerCase();
+        if (t.includes('full') || t.includes('group')) {
+          badgesEl.innerHTML += `<span class="tag tag-full">full accounts</span>`;
+          currentProspect.fullAccounts = true;
+        }
+      }
+      // SIC codes
+      if (d.sic_codes && d.sic_codes.length) {
+        currentProspect.sics = d.sic_codes;
+        const sics = d.sic_codes.slice(0,2).join(', ');
+        document.getElementById('dp-meta').textContent += ` | SIC: ${sics}`;
+      }
+    }
+  } catch(e) {}
+
+  // If still no address, prompt manual entry
+  if (!currentProspect.address) {
+    document.getElementById('dp-address').value = '';
+    document.getElementById('dp-address').placeholder = 'Address not found — enter manually';
+    document.getElementById('dp-address').style.color = '';
+  }
+
+  document.getElementById('dp-roof').focus();
+}
+
+function copyAddress() {
+  const addr = document.getElementById('dp-address').value;
+  if (!addr || addr.includes('Looking up') || addr.includes('not found')) {
+    alert('No address available yet.'); return;
+  }
+  navigator.clipboard.writeText(addr).then(() => showCopied()).catch(() => {
+    const el = document.createElement('textarea');
+    el.value = addr; document.body.appendChild(el); el.select();
+    document.execCommand('copy'); document.body.removeChild(el); showCopied();
+  });
+}
+
+function showCopied() {
+  const el = document.getElementById('copy-confirm');
+  el.style.display = 'inline';
+  setTimeout(() => el.style.display = 'none', 2000);
+}
+
+function openMaps() {
+  const addr = document.getElementById('dp-address').value;
+  if (!addr || addr.includes('Looking')) { alert('No address available yet.'); return; }
+  window.open('https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(addr) + '&layer=satellite', '_blank');
+}
+
+function openEarth() {
+  const addr = document.getElementById('dp-address').value;
+  if (!addr || addr.includes('Looking')) { alert('No address available yet.'); return; }
+  window.open('https://earth.google.com/web/search/' + encodeURIComponent(addr), '_blank');
+}
+
+function clearDetail() {
+  document.getElementById('detail-panel').style.display = 'none';
+  document.getElementById('proposal-output').style.display = 'none';
+  document.getElementById('welcome-screen').style.display = 'flex';
+  currentProspect = null;
+}
+
+function generateFromDetail() {
+  const roofArea = parseFloat(document.getElementById('dp-roof').value);
+  if (!roofArea || roofArea < 100) { alert('Please enter a roof area of at least 100m².'); return; }
+  const prospect = {
+    name: currentProspect ? currentProspect.name : '',
+    address: document.getElementById('dp-address').value,
+    contact: document.getElementById('dp-contact').value,
+    sector: document.getElementById('dp-sector').value,
+    roofArea,
+    number: currentProspect ? currentProspect.number : ''
+  };
+  if (!prospect.name) { alert('No company selected.'); return; }
+  buildProposal(prospect);
+}
+
+async function saveCurrentProspect() {
+  if (!currentProspect) { alert('No prospect selected.'); return; }
+  const roofArea = parseFloat(document.getElementById('dp-roof').value) || 0;
+  const sector = document.getElementById('dp-sector').value;
+  const address = document.getElementById('dp-address').value;
+  const refNum = 'NOV-' + (Math.floor(Math.random()*90000)+10000);
+  const sd = SECTOR_DATA[sector] || SECTOR_DATA.warehouse;
+
+  // Calculate estimates
+  const roofCost = roofArea * 160;
+  const usable = roofArea * 0.65;
+  const kwp = (usable * 150) / 1000;
+  const solarCost = kwp * 900;
+  const totalCost = roofCost + solarCost;
+  const annualSaving = kwp * 900 * 0.85 * 0.24;
+
+  const entry = {
+    name: currentProspect.name,
+    address,
+    sector,
+    roofArea,
+    number: currentProspect.number,
+    refNum,
+    savedAt: new Date().toISOString()
+  };
+
+  if (savedProspects.find(p => p.name === entry.name && p.number === entry.number)) {
+    alert('Already saved.'); return;
+  }
+
+  // Save to Airtable
+  try {
+    const postcode = address.match(/[A-Z]{1,2}[0-9][0-9A-Z]?\s?[0-9][A-Z]{2}/i);
+    const resp = await fetch(AT_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        fields: {
+          'Company Name': currentProspect.name,
+          'Company Number': currentProspect.number || '',
+          'Site Address': address,
+          'Postcode': postcode ? postcode[0] : '',
+          'Sector': sd.label,
+          'Roof Area m2': roofArea,
+          'Roofing Cost Estimate': roofCost,
+          'Solar Cost Estimate': Math.round(solarCost),
+          'Combined Total': Math.round(totalCost),
+          'Estimated Annual Saving': Math.round(annualSaving),
+          'Stage': 'Identified',
+          'Last Activity Date': new Date().toISOString().split('T')[0],
+          'Notes': `Ref: ${refNum}. Added via Nova Prospect Tool.`
+        }
+      })
+    });
+    if (resp.ok) {
+      const data = await resp.json();
+      entry.airtableId = data.id;
+      savedProspects.push(entry);
+      localStorage.setItem('nova_prospects_v2', JSON.stringify(savedProspects));
+      alert(`${entry.name} saved to pipeline and synced to Airtable.`);
+    } else {
+      const err = await resp.text();
+      throw new Error(err);
+    }
+  } catch(e) {
+    // Fall back to local save only
+    savedProspects.push(entry);
+    localStorage.setItem('nova_prospects_v2', JSON.stringify(savedProspects));
+    alert(`${entry.name} saved locally. Airtable sync failed: ${e.message}`);
+  }
+}
+
+function generateFromManual() {
+  const name = document.getElementById('m-company').value.trim();
+  const address = document.getElementById('m-address').value.trim();
+  const roofArea = parseFloat(document.getElementById('m-roof').value);
+  if (!name || !address || !roofArea || roofArea < 100) {
+    alert('Please fill in all fields and enter a roof area of at least 100m².'); return;
+  }
+  document.getElementById('welcome-screen').style.display = 'none';
+  document.getElementById('detail-panel').style.display = 'none';
+  buildProposal({
+    name, address, roofArea,
+    contact: document.getElementById('m-contact').value.trim(),
+    sector: document.getElementById('m-sector').value
+  });
+}
+
+function buildProposal(prospect) {
+  const { name, address, contact, sector, roofArea } = prospect;
+  const sd = SECTOR_DATA[sector] || SECTOR_DATA.warehouse;
+
+  const ROOF_CPM2=160, SOLAR_PCT=0.65, W_M2=150, KWH_KWP=900;
+  const RATE=0.24, SOLAR_KWP=900, INFLATION=0.07, LIFE=25;
+
+  const roofCost = roofArea * ROOF_CPM2;
+  const usable = roofArea * SOLAR_PCT;
+  const kwp = (usable * W_M2) / 1000;
+  const annualGen = kwp * KWH_KWP;
+  const annualConsumption = roofArea * sd.kwh;
+  const selfPct = Math.min(annualConsumption / annualGen, 0.85);
+  const selfKwh = annualGen * selfPct;
+  const yr1saving = selfKwh * RATE;
+  const solarCost = kwp * SOLAR_KWP;
+  const totalCost = roofCost + solarCost;
+
+  let cum=0, paybackLabel='Within 25 years', rate=RATE;
+  const yd = [];
+  for (let y=1; y<=LIFE; y++) {
+    const s = selfKwh * rate;
+    cum += s;
+    yd.push({ year:y, savings:Math.round(s), cum:Math.round(cum) });
+    if (!paybackLabel.includes('yr') && !paybackLabel.includes('month') && cum >= solarCost) {
+      const prev = y>1 ? yd[y-2].cum : 0;
+      const mo = Math.round(((solarCost-prev)/s)*12);
+      paybackLabel = y<=1 ? `${mo} months` : (mo>0 ? `${y-1} yrs ${mo} mo` : `${y} years`);
+    }
+    rate *= (1+INFLATION);
+  }
+
+  const lifetimeSavings = cum;
+  const netReturn = lifetimeSavings - solarCost;
+  const today = new Date();
+  const dateStr = today.toLocaleDateString('en-GB', {day:'numeric',month:'long',year:'numeric'});
+  const refNum = 'NOV-' + (Math.floor(Math.random()*90000)+10000);
+  const greeting = contact ? `Dear ${contact},` : 'To the Property and Estates Team,';
+
+  const monthRows = MONTHS.map((m,i) => {
+    const gen = Math.round(annualGen * (MONTHLY_F[i]/MF_TOTAL));
+    const sav = Math.round(gen * selfPct * RATE);
+    return `<tr><td>${m}</td><td style="text-align:right;">${fmtN(gen)} kWh</td><td style="text-align:right;">${fmt(sav)}</td></tr>`;
+  }).join('');
+
+  const yrRows = yd.slice(0,15).map(d => {
+    const pos = d.cum >= solarCost;
+    return `<tr class="${pos?'pos':''}"><td>Year ${d.year}</td><td>${fmt(d.savings)}</td><td>${fmt(d.cum)}</td><td>${fmt(d.cum-solarCost)}</td></tr>`;
+  }).join('');
+
+  const html = `
+<div class="action-bar">
+  <button class="ab-btn ab-save2" onclick='saveFromProposal(${JSON.stringify({name,address,sector,roofArea,refNum}).replace(/'/g,"&#39;")})'>Save Prospect</button>
+  <button class="ab-btn ab-print" onclick="window.print()">Print / PDF</button>
+</div>
+<div class="proposal">
+  <div class="ph">
+    <div class="ph-date">Prepared: ${dateStr}<br>Ref: ${refNum}</div>
+    <div class="ph-logo">n<span>o</span>va</div>
+    <div class="ph-tag">Industrial Roofing &nbsp;|&nbsp; Commercial Solar &nbsp;|&nbsp; Nationwide</div>
+    <div class="ph-to">Site Assessment &mdash; Indicative Proposal for</div>
+    <div class="ph-co">${name}</div>
+    <div class="ph-addr">${address}</div>
+  </div>
+  <div class="pb">
+    <div class="intro">
+      ${greeting}<br><br>
+      Following our desktop assessment of your site at <strong>${address}</strong>, we have prepared this indicative proposal outlining the financial case for combining a commercial roof refurbishment with an integrated solar installation.<br><br>
+      Based on an assessed roof area of approximately <strong>${fmtN(roofArea)}m²</strong> and typical energy consumption profiles for the <strong>${sd.label}</strong> sector, the figures below present a compelling and commercially sound opportunity. This document has been prepared specifically for your site. A free site visit and drone survey will allow us to refine all figures and produce a full fixed-price specification.
+    </div>
+
+    <p class="pl">Summary figures</p>
+    <div class="metrics">
+      <div class="mc"><div class="mc-l">Roof Area</div><div class="mc-v">${fmtN(roofArea)}m²</div><div class="mc-s">Total assessed</div></div>
+      <div class="mc"><div class="mc-l">Solar System</div><div class="mc-v">${Math.round(kwp)} kWp</div><div class="mc-s">${fmtN(Math.round(usable))}m² usable</div></div>
+      <div class="mc hl"><div class="mc-l">Year 1 Saving</div><div class="mc-v">${fmt(yr1saving)}</div><div class="mc-s">Electricity saving</div></div>
+      <div class="mc"><div class="mc-l">Annual Generation</div><div class="mc-v">${fmtN(Math.round(annualGen))} kWh</div><div class="mc-s">Est. solar output</div></div>
+      <div class="mc"><div class="mc-l">25-Year Saving</div><div class="mc-v">${fmt(lifetimeSavings)}</div><div class="mc-s">At 7% energy inflation</div></div>
+      <div class="mc"><div class="mc-l">Net Solar Return</div><div class="mc-v">${fmt(netReturn)}</div><div class="mc-s">After cost recovered</div></div>
+    </div>
+
+    <p class="pl">Indicative cost breakdown</p>
+    <table class="ct">
+      <thead><tr><th>Item</th><th>Basis</th><th>Cost</th></tr></thead>
+      <tbody>
+        <tr><td>Commercial Roof Refurbishment</td><td>${fmtN(roofArea)}m² at £160/m²</td><td>${fmt(roofCost)}</td></tr>
+        <tr><td>Full system including labour, materials and access</td><td>New roof system fully installed</td><td>Included</td></tr>
+        <tr class="sub"><td colspan="2">Roofing subtotal</td><td>${fmt(roofCost)}</td></tr>
+        <tr><td>Commercial Solar Installation</td><td>${Math.round(kwp)} kWp at £900/kWp</td><td>${fmt(solarCost)}</td></tr>
+        <tr><td>Panels, inverter, mounting and grid connection</td><td>Fully installed and commissioned</td><td>Included</td></tr>
+        <tr class="sub"><td colspan="2">Solar subtotal</td><td>${fmt(solarCost)}</td></tr>
+        <tr class="tot"><td colspan="2">Combined total investment (ex. VAT)</td><td>${fmt(totalCost)}</td></tr>
+      </tbody>
+    </table>
+
+    <div class="pbx">
+      <div class="pb-badge"><div class="pb-num">${paybackLabel}</div><div class="pb-lbl">Solar payback</div></div>
+      <div class="pb-txt">Based on current electricity rates of £0.24/kWh and a conservative 7% annual energy price increase, the solar installation at <strong>${name}</strong> is projected to fully recover its cost within <strong>${paybackLabel}</strong>. The roof refurbishment provides the structural platform and asset condition required to support the solar installation, extending the combined value of both investments across a 25-year horizon. After payback is achieved, the system generates pure financial return for the remaining lifetime of the installation.</div>
+    </div>
+
+    <p class="pl">Projected payback &mdash; solar investment (years 1 to 15)</p>
+    <div class="chart-wrap"><canvas id="pb-chart" role="img" aria-label="Cumulative savings chart">Payback projected within ${paybackLabel}.</canvas></div>
+
+    <p class="pl">Annual savings projection (first 15 years)</p>
+    <table class="at">
+      <thead><tr><th>Period</th><th>Annual saving</th><th>Cumulative saving</th><th>Net vs solar cost</th></tr></thead>
+      <tbody>${yrRows}</tbody>
+    </table>
+
+    <p class="pl">Indicative monthly solar generation and saving</p>
+    <table class="at">
+      <thead><tr><th>Month</th><th>Est. generation</th><th>Est. monthly saving</th></tr></thead>
+      <tbody>${monthRows}</tbody>
+    </table>
+
+    <div class="disc">All figures are indicative and based on desktop assessment, MCS irradiance data and sector average energy consumption profiles. They demonstrate commercial viability only and do not constitute a guarantee of performance or a fixed price. Actual costs and savings will be confirmed following a full site survey, structural assessment and DNO application. Nova will issue a detailed fixed-price specification following site visit.</div>
+  </div>
+
+  <div class="cta">
+    <div class="cta-t">Request your free site visit and drone survey</div>
+    <div class="cta-s">No obligation. We assess your roof, refine these figures and produce a full specification.</div>
+    <div class="cta-row">
+      <div class="cta-item"><div class="cta-lbl">Call us</div><div class="cta-val">0203 479 2994</div></div>
+      <div class="cta-div"></div>
+      <div class="cta-item"><div class="cta-lbl">Email</div><div class="cta-val">hello@nova-limited.com</div></div>
+      <div class="cta-div"></div>
+      <div class="cta-item"><div class="cta-lbl">Website</div><div class="cta-val">nova-limited.com</div></div>
+    </div>
+  </div>
+  <div class="pf">
+    <span>Nova (SW) Limited &mdash; Registered in England &amp; Wales</span>
+    <span>Prepared for ${name} &mdash; ${dateStr}</span>
+    <span>nova-limited.com</span>
+  </div>
+</div>`;
+
+  document.getElementById('detail-panel').style.display = 'none';
+  document.getElementById('proposal-output').style.display = 'block';
+  document.getElementById('proposal-output').innerHTML = html;
+  document.getElementById('main-area').scrollTo(0,0);
+
+  if (paybackChart) { paybackChart.destroy(); paybackChart = null; }
+  setTimeout(() => {
+    const labels = yd.slice(0,15).map(d => 'Yr '+d.year);
+    const cumArr = yd.slice(0,15).map(d => d.cum);
+    const costLine = yd.slice(0,15).map(() => Math.round(solarCost));
+    paybackChart = new Chart(document.getElementById('pb-chart'), {
+      type: 'bar',
+      data: {
+        labels,
+        datasets: [
+          { label: 'Cumulative savings', data: cumArr, backgroundColor: '#1a7a4a', borderRadius: 3, order: 2 },
+          { label: 'Solar investment', data: costLine, type: 'line', borderColor: '#e8a020', borderWidth: 2, borderDash: [5,4], pointRadius: 0, fill: false, order: 1 }
+        ]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => ' ' + fmt(ctx.parsed.y) } } },
+        scales: {
+          x: { ticks: { font: { size: 10 } }, grid: { display: false } },
+          y: { ticks: { callback: v => '£'+(v>=1000?Math.round(v/1000)+'k':v), font:{size:10} }, grid: { color:'rgba(0,0,0,0.05)' } }
+        }
+      }
+    });
+  }, 150);
+}
+
+async function saveFromProposal(data) {
+  if (savedProspects.find(p => p.name === data.name)) { alert('Already saved.'); return; }
+  const sd = SECTOR_DATA[data.sector] || SECTOR_DATA.warehouse;
+  const roofArea = data.roofArea || 0;
+  const roofCost = roofArea * 160;
+  const kwp = (roofArea * 0.65 * 150) / 1000;
+  const solarCost = Math.round(kwp * 900);
+  const totalCost = roofCost + solarCost;
+  const annualSaving = Math.round(kwp * 900 * 0.85 * 0.24);
+  const postcode = (data.address || '').match(/[A-Z]{1,2}[0-9][0-9A-Z]?\s?[0-9][A-Z]{2}/i);
+
+  try {
+    const resp = await fetch(AT_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        fields: {
+          'Company Name': data.name,
+          'Site Address': data.address || '',
+          'Postcode': postcode ? postcode[0] : '',
+          'Sector': sd.label,
+          'Roof Area m2': roofArea,
+          'Roofing Cost Estimate': roofCost,
+          'Solar Cost Estimate': solarCost,
+          'Combined Total': totalCost,
+          'Estimated Annual Saving': annualSaving,
+          'Stage': 'Proposal Sent',
+          'Last Activity Date': new Date().toISOString().split('T')[0],
+          'Notes': `Ref: ${data.refNum}. Proposal generated via Nova Prospect Tool.`
+        }
+      })
+    });
+    if (resp.ok) {
+      const d = await resp.json();
+      savedProspects.push({ ...data, savedAt: new Date().toISOString(), airtableId: d.id });
+      localStorage.setItem('nova_prospects_v2', JSON.stringify(savedProspects));
+      alert(`${data.name} saved and synced to Airtable as Proposal Sent.`);
+    } else {
+      throw new Error(await resp.text());
+    }
+  } catch(e) {
+    savedProspects.push({ ...data, savedAt: new Date().toISOString() });
+    localStorage.setItem('nova_prospects_v2', JSON.stringify(savedProspects));
+    alert(`${data.name} saved locally. Airtable sync failed: ${e.message}`);
+  }
+}
+
+function renderSaved() {
+  const el = document.getElementById('saved-list');
+  if (!savedProspects.length) { el.innerHTML = '<div class="loading-msg">No saved prospects yet</div>'; return; }
+  el.innerHTML = savedProspects.map((p,i) => `
+    <div class="saved-item" onclick="loadSaved(${i})">
+      <div><div class="si-name">${p.name}</div><div class="si-meta">${p.roofArea||0}m² | ${p.sector} | ${p.refNum||''}</div></div>
+      <button class="del-btn" onclick="event.stopPropagation();deleteSaved(${i})">&#10005;</button>
+    </div>`).join('');
+}
+
+function loadSaved(i) {
+  document.getElementById('welcome-screen').style.display = 'none';
+  document.getElementById('detail-panel').style.display = 'none';
+  buildProposal(savedProspects[i]);
+}
+
+function deleteSaved(i) {
+  if (!confirm('Remove this prospect?')) return;
+  savedProspects.splice(i,1);
+  localStorage.setItem('nova_prospects_v2', JSON.stringify(savedProspects));
+  renderSaved();
+}
+
+function exportCSV() {
+  if (!savedProspects.length) { alert('No saved prospects.'); return; }
+  const h = ['Company','Address','Sector','Roof Area m2','Reference','Saved'];
+  const rows = savedProspects.map(p => [p.name,p.address,p.sector,p.roofArea,p.refNum||'',p.savedAt||''].map(v=>`"${v}"`).join(','));
+  const csv = [h.join(','),...rows].join('\n');
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([csv],{type:'text/csv'}));
+  a.download = 'nova_prospects.csv'; a.click();
+}
+
+function copyName(name) {
+  navigator.clipboard.writeText(name).then(function() {
+    // Brief visual feedback - find the button that was clicked
+    const btns = document.querySelectorAll('.prospect-card button');
+    btns.forEach(b => {
+      if (b.textContent === 'Copy' && b.closest('.prospect-card').querySelector('.pc-name').textContent.includes(name.substring(0, 20))) {
+        const orig = b.textContent;
+        b.textContent = 'Copied!';
+        b.style.color = '#5dd49a';
+        setTimeout(() => { b.textContent = orig; b.style.color = ''; }, 1500);
+      }
+    });
+  }).catch(() => {
+    const el = document.createElement('textarea');
+    el.value = name;
+    document.body.appendChild(el);
+    el.select();
+    document.execCommand('copy');
+    document.body.removeChild(el);
+  });
+}
+
+function searchOnline(name) {
+  const query = encodeURIComponent(name + ' site address UK');
+  window.open('https://www.google.com/search?q=' + query, '_blank');
+}
+</script>
