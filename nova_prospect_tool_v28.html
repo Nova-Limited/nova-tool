@@ -409,7 +409,7 @@ body { font-family: 'Georgia', serif; background: #e8eaf0; color: var(--text); m
       </select>
     </div>
     <div class="fg"><label>Roof Area (m²)</label><input type="number" id="m-roof" placeholder="e.g. 2000" min="100" /></div>
-    <button class="btn btn-primary" onclick="generateFromManual()">Generate Proposal</button>
+    <button class="btn btn-primary" onclick="generateFromManual()">Continue</button>
   </div>
 
   <!-- SAVED TAB -->
@@ -1622,6 +1622,16 @@ function _renderOfficersPanel(panel, data) {
   }
 }
 
+function _buildDpMeta(parts) {
+  // Conditionally build the "Company No. X | Type | Incorporated: Y" line.
+  // Empty/missing values collapse cleanly; fully-empty input returns "Manual entry".
+  var out = [];
+  if (parts && parts.number) out.push('Company No. ' + parts.number);
+  if (parts && parts.type) out.push(parts.type);
+  if (parts && parts.date_of_creation) out.push('Incorporated: ' + parts.date_of_creation);
+  return out.length ? out.join(' | ') : 'Manual entry';
+}
+
 function _attachCardExtras(card, companyName, companyNum) {
   // Officers button — slot in before the existing Dismiss button, using .sbtn styling
   var dbtn = card.querySelector('.dbtn');
@@ -2143,7 +2153,11 @@ async function selectProspect(company, cardEl, sectorKey) {
   document.getElementById('detail-panel').style.display = 'block';
 
   document.getElementById('dp-name').textContent = resolvedName || 'Name unavailable';
-  document.getElementById('dp-meta').textContent = `Company No. ${company.company_number} | ${company.company_type || ''} | Incorporated: ${company.date_of_creation || 'N/A'}`;
+  document.getElementById('dp-meta').textContent = _buildDpMeta({
+    number: company.company_number,
+    type: company.company_type,
+    date_of_creation: company.date_of_creation
+  });
   document.getElementById('dp-address').value = 'Looking up address...';
   document.getElementById('dp-address').style.color = '#999';
   document.getElementById('dp-roof').value = '';
@@ -2311,21 +2325,53 @@ async function saveCurrentProspect() {
 }
 
 function generateFromManual() {
+  // Manual entry: route through the same detail panel that search prospects use,
+  // so Save Prospect and Solar Visualiser are available without divergent code paths.
   const name = document.getElementById('m-company').value.trim();
   const address = document.getElementById('m-address').value.trim();
   const roofArea = parseFloat(document.getElementById('m-roof').value);
   if (!name || !address || !roofArea || roofArea < 100) {
     alert('Please fill in all fields and enter a roof area of at least 100m².'); return;
   }
+  const contact = document.getElementById('m-contact').value.trim();
+  const jobTitle = document.getElementById('m-job-title').value.trim();
+  const email = document.getElementById('m-email').value.trim();
+  const sector = document.getElementById('m-sector').value;
+
+  // Seed currentProspect so saveCurrentProspect() and openVisualiser() have identity.
+  // Empty number/type signals a manual entry; status:'manual' is informational.
+  currentProspect = {
+    name: name,
+    address: address,
+    number: '',
+    type: '',
+    status: 'manual'
+  };
+
+  // Switch view: hide welcome / proposal output, show the detail panel.
   document.getElementById('welcome-screen').style.display = 'none';
-  document.getElementById('detail-panel').style.display = 'none';
-  (window.renderDesignerProposal || buildProposal)({
-    name, address, roofArea,
-    contact: document.getElementById('m-contact').value.trim(),
-    jobTitle: document.getElementById('m-job-title').value.trim(),
-    email: document.getElementById('m-email').value.trim(),
-    sector: document.getElementById('m-sector').value
-  });
+  document.getElementById('proposal-output').style.display = 'none';
+  document.getElementById('detail-panel').style.display = 'block';
+
+  // Populate detail-panel fields from the manual entry.
+  document.getElementById('dp-name').textContent = name;
+  document.getElementById('dp-meta').textContent = _buildDpMeta({ number: '', type: '', date_of_creation: '' });
+  const da = document.getElementById('dp-address');
+  da.value = address;
+  da.style.color = '';
+  document.getElementById('dp-roof').value = roofArea;
+  document.getElementById('dp-contact').value = contact;
+  document.getElementById('dp-job-title').value = jobTitle;
+  document.getElementById('dp-email').value = email;
+  const dpSector = document.getElementById('dp-sector');
+  if (dpSector) dpSector.value = sector;
+
+  // Badges row — keep parity with search-found cards (which show status + optional 'full accounts').
+  document.getElementById('dp-badges').innerHTML = '<span class="tag tag-active">manual entry</span>';
+
+  // Scroll panel into view.
+  const main = document.getElementById('main-area');
+  if (main && main.scrollTo) main.scrollTo(0, 0);
 }
 
 function buildProposal(prospect) {
