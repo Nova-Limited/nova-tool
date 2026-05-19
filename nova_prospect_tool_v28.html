@@ -97,6 +97,26 @@ body { font-family: 'Georgia', serif; background: #e8eaf0; color: var(--text); m
 .addr-btn-earth { background: var(--accent2); color: white; }
 .addr-btn-linkedin { background: #0077B5; color: white; }
 .addr-btn-officers { background: var(--accent); color: var(--dark); }
+.addr-btn-lookup { background: var(--accent); color: var(--dark); }
+.dp-lookup-panel { display: none; margin: 0 0 1rem; padding: 0.75rem 0.9rem; background: var(--light); border-left: 3px solid var(--accent); border-radius: 5px; font-family: sans-serif; }
+.dp-lookup-panel.open { display: block; }
+.dp-lookup-search-row { display: flex; gap: 0.5rem; margin-bottom: 0.6rem; }
+.dp-lookup-input { flex: 1; background: white; border: 1px solid var(--border); border-radius: 4px; padding: 0.4rem 0.6rem; font-size: 0.78rem; font-family: sans-serif; color: var(--text); }
+.dp-lookup-input:focus { outline: none; border-color: var(--accent); }
+.dp-lookup-go { background: var(--accent); color: var(--dark); border: none; border-radius: 4px; padding: 0.4rem 0.9rem; font-size: 0.7rem; font-weight: 700; cursor: pointer; font-family: sans-serif; letter-spacing: 0.5px; text-transform: uppercase; }
+.dp-lookup-row { padding: 0.55rem 0.6rem; border-radius: 4px; margin: 0.25rem 0; background: white; border: 1px solid var(--border); display: flex; gap: 0.6rem; align-items: flex-start; }
+.dp-lookup-row-info { flex: 1; min-width: 0; }
+.dp-lookup-row-name { font-size: 0.82rem; color: var(--dark); font-weight: 700; }
+.dp-lookup-row-meta { font-size: 0.68rem; color: var(--muted); margin-top: 0.1rem; }
+.dp-lookup-row-addr { font-size: 0.7rem; color: var(--text); margin-top: 0.15rem; }
+.dp-lookup-pick { background: var(--accent); color: var(--dark); border: none; border-radius: 4px; padding: 0.35rem 0.75rem; font-size: 0.65rem; font-weight: 700; font-family: sans-serif; letter-spacing: 0.5px; text-transform: uppercase; cursor: pointer; flex-shrink: 0; }
+.dp-lookup-empty { font-size: 0.78rem; color: var(--muted); font-style: italic; padding: 0.5rem 0; }
+.dp-lookup-hint { font-size: 0.7rem; color: var(--muted); margin-top: 0.5rem; }
+.dp-ch-hint { margin-top: 0.3rem; font-size: 0.68rem; color: var(--muted); display: flex; align-items: center; gap: 0.4rem; flex-wrap: wrap; font-family: sans-serif; }
+.dp-ch-hint-label { text-transform: uppercase; letter-spacing: 0.5px; font-weight: 700; }
+.dp-ch-hint-value { color: var(--text); }
+.dp-ch-swap-btn { background: transparent; color: var(--accent); border: 1px solid var(--accent); border-radius: 3px; padding: 0.12rem 0.45rem; font-size: 0.6rem; font-family: sans-serif; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; cursor: pointer; }
+.dp-ch-swap-btn:hover { background: var(--accent); color: var(--dark); }
 .dp-officers-panel { display: none; margin: 0 0 1rem; padding: 0.75rem 0.9rem; background: var(--light); border-left: 3px solid var(--accent); border-radius: 5px; font-family: sans-serif; }
 .dp-officers-panel.open { display: block; }
 .dp-officers-label { color: var(--accent); text-transform: uppercase; font-size: 0.62rem; letter-spacing: 0.06em; font-weight: 700; margin-top: 0.6rem; margin-bottom: 0.3rem; font-family: sans-serif; }
@@ -451,6 +471,11 @@ body { font-family: 'Georgia', serif; background: #e8eaf0; color: var(--text); m
       <div class="dp-field">
         <label>Site Address</label>
         <input type="text" id="dp-address" placeholder="Searching for address..." />
+        <div class="dp-ch-hint" id="dp-ch-address-hint" style="display:none;">
+          <span class="dp-ch-hint-label">CH registered office:</span>
+          <span class="dp-ch-hint-value" id="dp-ch-address-value"></span>
+          <button type="button" class="dp-ch-swap-btn" onclick="useChAddress()">Use this</button>
+        </div>
       </div>
       <div class="dp-field">
         <label>Sector Type</label>
@@ -492,12 +517,17 @@ body { font-family: 'Georgia', serif; background: #e8eaf0; color: var(--text); m
         <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M19 3a2 2 0 012 2v14a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h14m-.5 15.5v-5.3a3.26 3.26 0 00-3.26-3.26c-.85 0-1.84.52-2.32 1.3v-1.11h-2.79v8.37h2.79v-4.93c0-.77.62-1.4 1.39-1.4a1.4 1.4 0 011.4 1.4v4.93h2.79M6.88 8.56a1.68 1.68 0 001.68-1.68c0-.93-.75-1.69-1.68-1.69a1.69 1.69 0 00-1.69 1.69c0 .93.76 1.68 1.69 1.68m1.39 9.94v-8.37H5.5v8.37h2.77z"/></svg>
         LinkedIn
       </button>
+      <button class="addr-btn addr-btn-lookup" id="dp-lookup-btn" onclick="toggleDetailLookup()" style="display:none;">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+        Look up on CH
+      </button>
       <button class="addr-btn addr-btn-officers" id="dp-officers-btn" onclick="toggleDetailOfficers()" style="display:none;">
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="7" r="4"/><path d="M5.5 21a6.5 6.5 0 0113 0"/></svg>
         Officers
       </button>
       <span class="copy-confirm" id="copy-confirm">Copied!</span>
     </div>
+    <div class="dp-lookup-panel" id="dp-lookup-panel"></div>
     <div class="dp-officers-panel" id="dp-officers-panel"></div>
     <div class="dp-li-row">
       <span class="dp-li-label">LinkedIn People Search:</span>
@@ -2209,6 +2239,12 @@ async function selectProspect(company, cardEl, sectorKey) {
   if (ofBtn) ofBtn.style.display = company.company_number ? '' : 'none';
   _resetDetailOfficersPanel();
 
+  // Search-found prospects already have a CH number, so the lookup button is irrelevant — hide it.
+  const lkBtn = document.getElementById('dp-lookup-btn');
+  if (lkBtn) lkBtn.style.display = 'none';
+  _resetDetailLookupPanel();
+  _hideChAddressSwap();
+
   document.getElementById('main-area').scrollTo(0, 0);
 
   // Fetch full company profile for address + account type
@@ -2419,11 +2455,274 @@ function _resetDetailOfficersPanel() {
   }
 }
 
+// ============================================================
+// Companies House lookup for manual entries (upgrade path).
+// Lets a user typed "ABC Industries" on the manual tab look the company up
+// on CH and attach number/type/status/SIC etc. so the entry becomes
+// indistinguishable from a search-found prospect.
+// ============================================================
+let _lookupResults = [];
+
+function toggleDetailLookup() {
+  const panel = document.getElementById('dp-lookup-panel');
+  if (!panel) return;
+  if (panel.classList.contains('open')) {
+    panel.classList.remove('open');
+    return;
+  }
+  // Build the panel contents fresh on each open so the input is always reset
+  // to the current prospect's name.
+  panel.innerHTML = '';
+
+  const searchRow = document.createElement('div');
+  searchRow.className = 'dp-lookup-search-row';
+  const input = document.createElement('input');
+  input.type = 'text';
+  input.id = 'dp-lookup-input';
+  input.className = 'dp-lookup-input';
+  input.placeholder = 'Company name to search';
+  input.value = (currentProspect && currentProspect.name) || '';
+  input.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') { e.preventDefault(); runDetailLookup(); }
+  });
+  searchRow.appendChild(input);
+  const goBtn = document.createElement('button');
+  goBtn.type = 'button';
+  goBtn.className = 'dp-lookup-go';
+  goBtn.textContent = 'Search';
+  goBtn.addEventListener('click', runDetailLookup);
+  searchRow.appendChild(goBtn);
+  panel.appendChild(searchRow);
+
+  const resultsEl = document.createElement('div');
+  resultsEl.id = 'dp-lookup-results';
+  panel.appendChild(resultsEl);
+
+  panel.classList.add('open');
+
+  // Auto-fire if we already have a usable name; otherwise just focus the input.
+  if (input.value.trim().length >= 2) {
+    runDetailLookup();
+  } else {
+    setTimeout(function() { input.focus(); }, 50);
+  }
+}
+
+async function runDetailLookup() {
+  const input = document.getElementById('dp-lookup-input');
+  const resultsEl = document.getElementById('dp-lookup-results');
+  if (!input || !resultsEl) return;
+  const q = (input.value || '').trim();
+  if (q.length < 2) {
+    resultsEl.innerHTML = '';
+    const e = document.createElement('div');
+    e.className = 'dp-lookup-empty';
+    e.textContent = 'Enter at least 2 characters to search.';
+    resultsEl.appendChild(e);
+    return;
+  }
+  resultsEl.innerHTML = '';
+  const loading = document.createElement('div');
+  loading.className = 'dp-lookup-empty';
+  loading.textContent = 'Searching Companies House…';
+  resultsEl.appendChild(loading);
+  try {
+    const params = new URLSearchParams();
+    params.append('q', q);
+    params.append('items_per_page', '10');
+    params.append('start_index', '0');
+    const resp = await fetch(CH_PROXY + '/search/companies?' + params.toString());
+    if (!resp.ok) {
+      resultsEl.innerHTML = '';
+      const err = document.createElement('div');
+      err.className = 'dp-lookup-empty';
+      err.textContent = 'Lookup failed (HTTP ' + resp.status + '). Try again.';
+      resultsEl.appendChild(err);
+      return;
+    }
+    const data = await resp.json();
+    const items = (data.items || []).slice(0, 10);
+    _lookupResults = items;
+    resultsEl.innerHTML = '';
+    if (!items.length) {
+      const empty = document.createElement('div');
+      empty.className = 'dp-lookup-empty';
+      empty.textContent = 'No companies found matching "' + q + '" on Companies House. Refine the name or continue as a manual entry.';
+      resultsEl.appendChild(empty);
+      return;
+    }
+    items.forEach(function(item, idx) {
+      const name = item.title || item.company_name || item.name || '';
+      const num = item.company_number || '';
+      const status = item.company_status || '';
+      const type = item.company_type || '';
+      const date = item.date_of_creation || '';
+      const addr = item.address_snippet || ((item.address && [item.address.address_line_1, item.address.locality, item.address.postal_code].filter(Boolean).join(', ')) || '');
+      const metaParts = [];
+      if (num) metaParts.push('No. ' + num);
+      if (type) metaParts.push(type);
+      if (status) metaParts.push(status);
+      if (date) metaParts.push('Inc. ' + date);
+
+      const row = document.createElement('div');
+      row.className = 'dp-lookup-row';
+      const info = document.createElement('div');
+      info.className = 'dp-lookup-row-info';
+      const nm = document.createElement('div');
+      nm.className = 'dp-lookup-row-name';
+      nm.textContent = name;
+      const meta = document.createElement('div');
+      meta.className = 'dp-lookup-row-meta';
+      meta.textContent = metaParts.join(' · ');
+      const addrEl = document.createElement('div');
+      addrEl.className = 'dp-lookup-row-addr';
+      addrEl.textContent = addr;
+      info.appendChild(nm);
+      info.appendChild(meta);
+      if (addr) info.appendChild(addrEl);
+      const pickBtn = document.createElement('button');
+      pickBtn.type = 'button';
+      pickBtn.className = 'dp-lookup-pick';
+      pickBtn.textContent = 'Pick';
+      pickBtn.addEventListener('click', function() { pickLookupResult(idx); });
+      row.appendChild(info);
+      row.appendChild(pickBtn);
+      resultsEl.appendChild(row);
+    });
+    const total = data.total_results || items.length;
+    if (total > items.length) {
+      const hint = document.createElement('div');
+      hint.className = 'dp-lookup-hint';
+      hint.textContent = 'Showing first ' + items.length + ' of ' + total + ' matches. Refine the name to narrow.';
+      resultsEl.appendChild(hint);
+    }
+  } catch (e) {
+    resultsEl.innerHTML = '';
+    const err = document.createElement('div');
+    err.className = 'dp-lookup-empty';
+    err.textContent = 'Lookup failed: ' + ((e && e.message) || 'unknown') + '. Try again.';
+    resultsEl.appendChild(err);
+  }
+}
+
+function pickLookupResult(idx) {
+  const item = (_lookupResults || [])[idx];
+  if (!item || !currentProspect) return;
+
+  // Synchronous attachment from the /search/companies result.
+  currentProspect.number = item.company_number || '';
+  currentProspect.type = item.company_type || '';
+  currentProspect.status = item.company_status || 'active';
+  const profileName = item.title || item.company_name || item.name || '';
+  if (profileName) {
+    currentProspect.name = profileName;
+    document.getElementById('dp-name').textContent = profileName;
+  }
+
+  // Update dp-meta via the same helper search uses.
+  document.getElementById('dp-meta').textContent = _buildDpMeta({
+    number: item.company_number,
+    type: item.company_type,
+    date_of_creation: item.date_of_creation
+  });
+
+  // Replace the "manual entry" badge with an "active" (or actual status) badge.
+  const badgesEl = document.getElementById('dp-badges');
+  badgesEl.innerHTML = '';
+  const badge = document.createElement('span');
+  badge.className = 'tag tag-active';
+  badge.textContent = item.company_status || 'active';
+  badgesEl.appendChild(badge);
+
+  // Flip button visibility: hide Look-up, show Officers.
+  const lookupBtn = document.getElementById('dp-lookup-btn');
+  if (lookupBtn) lookupBtn.style.display = 'none';
+  const officersBtn = document.getElementById('dp-officers-btn');
+  if (officersBtn) officersBtn.style.display = '';
+
+  // Close + clear the lookup panel; reset any officers panel state.
+  _resetDetailLookupPanel();
+  _resetDetailOfficersPanel();
+
+  // Async enrich via /company/{number} — canonical name, full-accounts badge, SIC codes, CH address.
+  fetch(CH_PROXY + '/company/' + encodeURIComponent(item.company_number))
+    .then(function(r) { return r.ok ? r.json() : null; })
+    .then(function(d) {
+      if (!d) return;
+      const canonicalName = d.company_name || d.title || d.name || '';
+      if (canonicalName && canonicalName !== currentProspect.name) {
+        currentProspect.name = canonicalName;
+        document.getElementById('dp-name').textContent = canonicalName;
+      }
+      const ra = d.registered_office_address;
+      if (ra) {
+        const addrStr = [ra.address_line_1, ra.address_line_2, ra.locality, ra.region, ra.postal_code].filter(Boolean).join(', ');
+        if (addrStr) _showChAddressSwap(addrStr);
+      }
+      if (d.accounts && d.accounts.last_accounts) {
+        const t = (d.accounts.last_accounts.type || '').toLowerCase();
+        if (t.includes('full') || t.includes('group')) {
+          const fullBadge = document.createElement('span');
+          fullBadge.className = 'tag tag-full';
+          fullBadge.textContent = 'full accounts';
+          badgesEl.appendChild(fullBadge);
+          currentProspect.fullAccounts = true;
+        }
+      }
+      if (d.sic_codes && d.sic_codes.length) {
+        currentProspect.sics = d.sic_codes;
+        const sicsShort = d.sic_codes.slice(0, 2).join(', ');
+        document.getElementById('dp-meta').textContent += ' | SIC: ' + sicsShort;
+      }
+    })
+    .catch(function() { /* enrichment is best-effort */ });
+}
+
+function useChAddress() {
+  const valueEl = document.getElementById('dp-ch-address-value');
+  if (!valueEl) return;
+  const addr = valueEl.textContent || '';
+  if (!addr) return;
+  if (currentProspect) currentProspect.address = addr;
+  const da = document.getElementById('dp-address');
+  if (da) {
+    da.value = addr;
+    da.style.color = '';
+  }
+  _hideChAddressSwap();
+}
+
+function _showChAddressSwap(addr) {
+  const hint = document.getElementById('dp-ch-address-hint');
+  const value = document.getElementById('dp-ch-address-value');
+  if (!hint || !value) return;
+  value.textContent = addr;
+  hint.style.display = 'flex';
+}
+
+function _hideChAddressSwap() {
+  const hint = document.getElementById('dp-ch-address-hint');
+  if (hint) hint.style.display = 'none';
+  const value = document.getElementById('dp-ch-address-value');
+  if (value) value.textContent = '';
+}
+
+function _resetDetailLookupPanel() {
+  const panel = document.getElementById('dp-lookup-panel');
+  if (panel) {
+    panel.classList.remove('open');
+    panel.innerHTML = '';
+  }
+  _lookupResults = [];
+}
+
 function clearDetail() {
   document.getElementById('detail-panel').style.display = 'none';
   document.getElementById('proposal-output').style.display = 'none';
   document.getElementById('welcome-screen').style.display = 'flex';
   _resetDetailOfficersPanel();
+  _resetDetailLookupPanel();
+  _hideChAddressSwap();
   currentProspect = null;
 }
 
@@ -2536,6 +2835,12 @@ function generateFromManual() {
   const ofBtnM = document.getElementById('dp-officers-btn');
   if (ofBtnM) ofBtnM.style.display = 'none';
   _resetDetailOfficersPanel();
+
+  // Lookup button IS shown for manual entries — gives the user a way to upgrade to a CH-backed prospect.
+  const lkBtnM = document.getElementById('dp-lookup-btn');
+  if (lkBtnM) lkBtnM.style.display = '';
+  _resetDetailLookupPanel();
+  _hideChAddressSwap();
 
   // Scroll panel into view.
   const main = document.getElementById('main-area');
