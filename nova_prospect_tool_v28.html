@@ -96,6 +96,18 @@ body { font-family: 'Georgia', serif; background: #e8eaf0; color: var(--text); m
 .addr-btn-maps { background: var(--green); color: white; }
 .addr-btn-earth { background: var(--accent2); color: white; }
 .addr-btn-linkedin { background: #0077B5; color: white; }
+.addr-btn-officers { background: var(--accent); color: var(--dark); }
+.dp-officers-panel { display: none; margin: 0 0 1rem; padding: 0.75rem 0.9rem; background: var(--light); border-left: 3px solid var(--accent); border-radius: 5px; font-family: sans-serif; }
+.dp-officers-panel.open { display: block; }
+.dp-officers-label { color: var(--accent); text-transform: uppercase; font-size: 0.62rem; letter-spacing: 0.06em; font-weight: 700; margin-top: 0.6rem; margin-bottom: 0.3rem; font-family: sans-serif; }
+.dp-officers-label:first-child { margin-top: 0; }
+.dp-officers-row { font-size: 0.78rem; color: var(--text); margin: 0.22rem 0; line-height: 1.4; }
+.dp-officers-row .nm { color: var(--dark); font-weight: 700; }
+.dp-officers-err { font-size: 0.72rem; color: #c5532a; font-style: italic; }
+.dp-li-row { display: flex; align-items: center; gap: 0.4rem; flex-wrap: wrap; margin-bottom: 0.85rem; }
+.dp-li-label { font-size: 0.6rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; font-family: sans-serif; font-weight: 700; }
+.dp-li-btn { background: rgba(0,119,181,0.1); color: #0077B5; border: 1px solid rgba(0,119,181,0.3); border-radius: 4px; padding: 0.32rem 0.7rem; font-size: 0.62rem; font-weight: 700; font-family: sans-serif; letter-spacing: 0.3px; cursor: pointer; transition: all 0.15s; }
+.dp-li-btn:hover { background: rgba(0,119,181,0.18); border-color: rgba(0,119,181,0.5); }
 .copy-confirm { font-size: 0.7rem; color: var(--green); font-family: sans-serif; font-weight: 600; display: none; }
 .dp-actions { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0.65rem; }
 .dp-btn { border: none; border-radius: 5px; padding: 0.6rem; font-size: 0.72rem; font-family: sans-serif; font-weight: 700; letter-spacing: 0.5px; cursor: pointer; }
@@ -480,7 +492,19 @@ body { font-family: 'Georgia', serif; background: #e8eaf0; color: var(--text); m
         <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M19 3a2 2 0 012 2v14a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h14m-.5 15.5v-5.3a3.26 3.26 0 00-3.26-3.26c-.85 0-1.84.52-2.32 1.3v-1.11h-2.79v8.37h2.79v-4.93c0-.77.62-1.4 1.39-1.4a1.4 1.4 0 011.4 1.4v4.93h2.79M6.88 8.56a1.68 1.68 0 001.68-1.68c0-.93-.75-1.69-1.68-1.69a1.69 1.69 0 00-1.69 1.69c0 .93.76 1.68 1.69 1.68m1.39 9.94v-8.37H5.5v8.37h2.77z"/></svg>
         LinkedIn
       </button>
+      <button class="addr-btn addr-btn-officers" id="dp-officers-btn" onclick="toggleDetailOfficers()" style="display:none;">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="7" r="4"/><path d="M5.5 21a6.5 6.5 0 0113 0"/></svg>
+        Officers
+      </button>
       <span class="copy-confirm" id="copy-confirm">Copied!</span>
+    </div>
+    <div class="dp-officers-panel" id="dp-officers-panel"></div>
+    <div class="dp-li-row">
+      <span class="dp-li-label">LinkedIn People Search:</span>
+      <button class="dp-li-btn" onclick="openDetailLinkedIn('estates')">Estates</button>
+      <button class="dp-li-btn" onclick="openDetailLinkedIn('facilities')">Facilities</button>
+      <button class="dp-li-btn" onclick="openDetailLinkedIn('procurement')">Procurement</button>
+      <button class="dp-li-btn" onclick="openDetailLinkedIn('all')">All staff</button>
     </div>
     <div class="dp-grid">
       <div class="dp-field">
@@ -2180,6 +2204,11 @@ async function selectProspect(company, cardEl, sectorKey) {
   const badgesEl = document.getElementById('dp-badges');
   badgesEl.innerHTML = `<span class="tag tag-active">${company.company_status}</span>`;
 
+  // Officers button visible for search-found prospects with a CH number; reset panel state on each selection.
+  const ofBtn = document.getElementById('dp-officers-btn');
+  if (ofBtn) ofBtn.style.display = company.company_number ? '' : 'none';
+  _resetDetailOfficersPanel();
+
   document.getElementById('main-area').scrollTo(0, 0);
 
   // Fetch full company profile for address + account type
@@ -2262,10 +2291,139 @@ function openLinkedIn() {
   window.open('https://www.linkedin.com/search/results/companies/?keywords=' + encodeURIComponent(name), '_blank');
 }
 
+// LinkedIn people-search quick row in the detail panel.
+// Role keyword (or empty for "all staff") + cleaned company name, exact-phrase quoted.
+function openDetailLinkedIn(role) {
+  const name = currentProspect ? currentProspect.name : '';
+  if (!name) { alert('No company selected.'); return; }
+  const quoted = '"' + _cleanCompanyName(name) + '"';
+  const q = (role && role !== 'all') ? ('"' + role + '" ' + quoted) : quoted;
+  window.open('https://www.linkedin.com/search/results/people/?keywords=' + encodeURIComponent(q), '_blank', 'noopener');
+}
+
+// Officers panel in the detail panel. Shares _officersCache with the card-level
+// panel from Phase 3, so expanding it on a card and then again here is instant.
+function toggleDetailOfficers() {
+  if (!currentProspect || !currentProspect.number) return;
+  const panel = document.getElementById('dp-officers-panel');
+  const btn = document.getElementById('dp-officers-btn');
+  if (!panel || !btn) return;
+  if (panel.classList.contains('open')) {
+    panel.classList.remove('open');
+    return;
+  }
+  if (_officersCache.has(currentProspect.number)) {
+    _renderDpOfficersPanel(panel, _officersCache.get(currentProspect.number));
+    panel.classList.add('open');
+    return;
+  }
+  const origHtml = btn.innerHTML;
+  btn.textContent = 'Loading…';
+  btn.disabled = true;
+  fetch(CH_PROXY + '/officers/' + encodeURIComponent(currentProspect.number))
+    .then(function(r) { return r.json(); })
+    .then(function(d) {
+      _officersCache.set(currentProspect.number, d);
+      _renderDpOfficersPanel(panel, d);
+      panel.classList.add('open');
+    })
+    .catch(function(err) {
+      panel.innerHTML = '';
+      const er = document.createElement('div');
+      er.className = 'dp-officers-err';
+      er.textContent = 'Fetch failed: ' + ((err && err.message) || 'unknown');
+      panel.appendChild(er);
+      panel.classList.add('open');
+    })
+    .finally(function() {
+      btn.innerHTML = origHtml;
+      btn.disabled = false;
+    });
+}
+
+function _renderDpOfficersPanel(panel, data) {
+  panel.innerHTML = '';
+
+  // --- Active Officers ---
+  const oLbl = document.createElement('div');
+  oLbl.className = 'dp-officers-label';
+  oLbl.textContent = 'Active Officers';
+  panel.appendChild(oLbl);
+
+  if (data.officers_error) {
+    const oe = document.createElement('div');
+    oe.className = 'dp-officers-err';
+    oe.textContent = 'Could not load officers (' + data.officers_error + ')';
+    panel.appendChild(oe);
+  } else {
+    const items = (data.officers && data.officers.items) || [];
+    const active = items.filter(function(o) { return !o.resigned_on; });
+    if (!active.length) {
+      const none = document.createElement('div');
+      none.className = 'dp-officers-row';
+      none.textContent = 'No active officers listed';
+      panel.appendChild(none);
+    } else {
+      active.forEach(function(o) {
+        const row = document.createElement('div');
+        row.className = 'dp-officers-row';
+        const nm = document.createElement('span');
+        nm.className = 'nm';
+        nm.textContent = o.name || '(Unnamed)';
+        row.appendChild(nm);
+        row.appendChild(document.createTextNode(
+          ' — ' + _prettyOfficerRole(o.officer_role) +
+          ' — Appointed: ' + (o.appointed_on || 'unknown')
+        ));
+        panel.appendChild(row);
+      });
+    }
+  }
+
+  // --- PSC --- (silent if 404 or empty; show non-404 errors)
+  const pscItems = (data.psc && data.psc.items) || [];
+  const pscIs404 = data.psc_error && /404/.test(String(data.psc_error));
+  if (!pscIs404 && pscItems.length) {
+    const pLbl = document.createElement('div');
+    pLbl.className = 'dp-officers-label';
+    pLbl.textContent = 'Persons with Significant Control';
+    panel.appendChild(pLbl);
+    pscItems.forEach(function(p) {
+      const row = document.createElement('div');
+      row.className = 'dp-officers-row';
+      const nm = document.createElement('span');
+      nm.className = 'nm';
+      nm.textContent = p.name || '(Unnamed)';
+      row.appendChild(nm);
+      const noc = (p.natures_of_control && p.natures_of_control[0]) || '';
+      row.appendChild(document.createTextNode(
+        ' — ' + _prettyNoc(noc) +
+        ' — Notified: ' + (p.notified_on || 'unknown')
+      ));
+      panel.appendChild(row);
+    });
+  } else if (data.psc_error && !pscIs404) {
+    const pe = document.createElement('div');
+    pe.className = 'dp-officers-err';
+    pe.textContent = 'Could not load PSCs (' + data.psc_error + ')';
+    panel.appendChild(pe);
+  }
+}
+
+// Helper used by clear/reset paths to collapse and empty the detail-panel Officers panel.
+function _resetDetailOfficersPanel() {
+  const panel = document.getElementById('dp-officers-panel');
+  if (panel) {
+    panel.classList.remove('open');
+    panel.innerHTML = '';
+  }
+}
+
 function clearDetail() {
   document.getElementById('detail-panel').style.display = 'none';
   document.getElementById('proposal-output').style.display = 'none';
   document.getElementById('welcome-screen').style.display = 'flex';
+  _resetDetailOfficersPanel();
   currentProspect = null;
 }
 
@@ -2373,6 +2531,11 @@ function generateFromManual() {
 
   // Badges row — keep parity with search-found cards (which show status + optional 'full accounts').
   document.getElementById('dp-badges').innerHTML = '<span class="tag tag-active">manual entry</span>';
+
+  // Officers button is hidden for manual entries (no CH number to query). Panel reset for hygiene.
+  const ofBtnM = document.getElementById('dp-officers-btn');
+  if (ofBtnM) ofBtnM.style.display = 'none';
+  _resetDetailOfficersPanel();
 
   // Scroll panel into view.
   const main = document.getElementById('main-area');
