@@ -117,6 +117,45 @@ body { font-family: 'Georgia', serif; background: #e8eaf0; color: var(--text); m
 .dp-ch-hint-value { color: var(--text); }
 .dp-ch-swap-btn { background: transparent; color: var(--accent); border: 1px solid var(--accent); border-radius: 3px; padding: 0.12rem 0.45rem; font-size: 0.6rem; font-family: sans-serif; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; cursor: pointer; }
 .dp-ch-swap-btn:hover { background: var(--accent); color: var(--dark); }
+/* Layer 5: email-find UI — card-level (dark theme) */
+.pc-domain-row { display: flex; align-items: center; gap: 0.35rem; margin: 0.4rem 0 0.35rem; }
+.pc-domain-label { font-size: 0.55rem; color: rgba(255,255,255,0.55); text-transform: uppercase; letter-spacing: 0.04em; font-weight: 600; font-family: sans-serif; }
+.pc-domain-input { flex: 1; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.15); border-radius: 3px; padding: 0.2rem 0.4rem; color: #fff; font-size: 0.65rem; font-family: monospace; }
+.pc-domain-input:focus { outline: none; border-color: #e8a020; }
+.pc-of-email-btn { background: rgba(232,160,32,0.18); border: 1px solid rgba(232,160,32,0.35); border-radius: 3px; padding: 0.1rem 0.35rem; color: #e8a020; font-size: 0.55rem; cursor: pointer; white-space: nowrap; font-family: sans-serif; font-weight: 700; margin-left: 0.3rem; letter-spacing: 0.3px; }
+.pc-of-email-btn:hover { background: rgba(232,160,32,0.32); }
+.pc-of-email-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.pc-of-email-result-line { font-size: 0.62rem; display: flex; align-items: center; gap: 0.3rem; flex-wrap: wrap; margin: 0.05rem 0 0.25rem 0.5rem; font-family: sans-serif; }
+.pc-of-email-result-line.verified { color: #5dd49a; }
+.pc-of-email-result-line.low { color: #e8a020; }
+.pc-of-email-result-line.none { color: rgba(255,255,255,0.55); }
+.pc-of-email-result-line.err { color: #e87a20; }
+.pc-of-email-result-line .nm-icon { font-weight: 700; }
+.pc-of-email-result-line .addr { color: #fff; font-family: monospace; font-weight: 600; word-break: break-all; }
+.pc-of-email-result-line .reason { color: rgba(255,255,255,0.5); font-style: italic; font-size: 0.58rem; }
+.pc-of-email-result-line .copy { background: rgba(255,255,255,0.12); border: none; border-radius: 3px; padding: 0.08rem 0.35rem; color: rgba(255,255,255,0.85); font-size: 0.55rem; cursor: pointer; font-family: sans-serif; font-weight: 600; }
+.pc-of-email-result-line .copy:hover { background: rgba(255,255,255,0.22); }
+/* Layer 5: email-find UI — detail-panel (light theme) */
+.dp-domain-row { display: flex; align-items: center; gap: 0.5rem; margin: 0.55rem 0 0.4rem; }
+.dp-domain-label { font-size: 0.6rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; font-weight: 700; font-family: sans-serif; }
+.dp-domain-input { flex: 1; background: white; border: 1px solid var(--border); border-radius: 4px; padding: 0.3rem 0.55rem; color: var(--text); font-size: 0.74rem; font-family: monospace; }
+.dp-domain-input:focus { outline: none; border-color: var(--accent); }
+.dp-of-email-btn { background: rgba(232,160,32,0.18); border: 1px solid rgba(232,160,32,0.45); border-radius: 3px; padding: 0.18rem 0.55rem; color: var(--accent); font-size: 0.62rem; cursor: pointer; white-space: nowrap; font-family: sans-serif; font-weight: 700; margin-left: 0.4rem; letter-spacing: 0.3px; }
+.dp-of-email-btn:hover { background: rgba(232,160,32,0.32); }
+.dp-of-email-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.dp-of-email-result-line { font-size: 0.7rem; display: flex; align-items: center; gap: 0.4rem; flex-wrap: wrap; margin: 0.05rem 0 0.35rem 0.5rem; font-family: sans-serif; }
+.dp-of-email-result-line.verified { color: var(--green); }
+.dp-of-email-result-line.low { color: #b87a18; }
+.dp-of-email-result-line.none { color: var(--muted); }
+.dp-of-email-result-line.err { color: var(--red); }
+.dp-of-email-result-line .nm-icon { font-weight: 700; font-size: 0.85rem; }
+.dp-of-email-result-line .addr { color: var(--dark); font-family: monospace; font-weight: 700; word-break: break-all; }
+.dp-of-email-result-line .reason { color: var(--muted); font-style: italic; font-size: 0.65rem; }
+.dp-of-email-result-line .copy { background: rgba(0,0,0,0.05); border: 1px solid var(--border); border-radius: 3px; padding: 0.12rem 0.45rem; color: var(--text); font-size: 0.6rem; cursor: pointer; font-family: sans-serif; font-weight: 700; }
+.dp-of-email-result-line .copy:hover { background: rgba(0,0,0,0.1); }
+.dp-of-email-result-line .save { background: rgba(26,122,74,0.15); border: 1px solid rgba(26,122,74,0.4); border-radius: 3px; padding: 0.12rem 0.45rem; color: var(--green); font-size: 0.6rem; cursor: pointer; font-family: sans-serif; font-weight: 700; }
+.dp-of-email-result-line .save:hover { background: rgba(26,122,74,0.25); }
+.dp-of-email-result-line .save:disabled { opacity: 0.65; cursor: default; }
 .dp-officers-panel { display: none; margin: 0 0 1rem; padding: 0.75rem 0.9rem; background: var(--light); border-left: 3px solid var(--accent); border-radius: 5px; font-family: sans-serif; }
 .dp-officers-panel.open { display: block; }
 .dp-officers-label { color: var(--accent); text-transform: uppercase; font-size: 0.62rem; letter-spacing: 0.06em; font-weight: 700; margin-top: 0.6rem; margin-bottom: 0.3rem; font-family: sans-serif; }
@@ -1612,7 +1651,298 @@ function _prettyNoc(noc) {
   });
 }
 
-function _renderOfficersPanel(panel, data) {
+// ============================================================
+// Layer 5: per-officer email find + Save to CRM (detail panel only).
+// Calls Cloudflare Worker POST /email-find which forwards to MillionVerifier.
+// ============================================================
+const _emailCache = new Map();          // key: companyNumber|firstName|lastName|domain (lowercased) -> response JSON
+const _emailDomainCache = new Map();    // key: companyNumber -> last-used domain (string)
+let _emailCapHit = false;               // cleared on page reload
+
+function _titleCase(s) {
+  if (!s) return '';
+  return s.charAt(0).toUpperCase() + s.slice(1).toLowerCase();
+}
+
+// Parse a CH-style name "SMITH, John Henry" -> { firstName: 'John', lastName: 'Smith' }.
+// Returns null if there's no comma (corporate officer e.g. "BARCLAYS NOMINEES LIMITED").
+function _parseOfficerName(chName) {
+  if (!chName || typeof chName !== 'string') return null;
+  const idx = chName.indexOf(',');
+  if (idx === -1) return null;
+  const lastRaw = chName.slice(0, idx).trim();
+  const firstRest = chName.slice(idx + 1).trim();
+  if (!lastRaw || !firstRest) return null;
+  const firstRaw = firstRest.split(/\s+/)[0];
+  if (!firstRaw) return null;
+  return { firstName: _titleCase(firstRaw), lastName: _titleCase(lastRaw) };
+}
+
+// "SMITH, John Henry" -> "John Henry Smith" (used for Airtable Contact Name).
+function _formatOfficerNameForCRM(chName) {
+  if (!chName || typeof chName !== 'string') return chName || '';
+  const idx = chName.indexOf(',');
+  if (idx === -1) return chName;
+  const lastTC = _titleCase(chName.slice(0, idx).trim());
+  const firstParts = chName.slice(idx + 1).trim().split(/\s+/).map(_titleCase);
+  return (firstParts.join(' ') + ' ' + lastTC).trim();
+}
+
+function _domainFromEmail(email) {
+  if (!email) return '';
+  const at = String(email).indexOf('@');
+  if (at < 0) return '';
+  return String(email).slice(at + 1).trim().toLowerCase();
+}
+
+function _emailKey(num, firstName, lastName, domain) {
+  return [num, firstName, lastName, domain].map(s => String(s || '').toLowerCase()).join('|');
+}
+
+async function _findOfficerEmail(firstName, lastName, domain, companyNumber) {
+  if (_emailCapHit) return { _capHit: true, error: 'daily_cap_exceeded' };
+  const key = _emailKey(companyNumber, firstName, lastName, domain);
+  if (_emailCache.has(key)) return _emailCache.get(key);
+  try {
+    const resp = await fetch(CH_PROXY + '/email-find', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ firstName, lastName, domain }),
+    });
+    if (resp.status === 429) {
+      _emailCapHit = true;
+      let body = {};
+      try { body = await resp.json(); } catch (_) {}
+      return { _capHit: true, error: body.error || 'daily_cap_exceeded' };
+    }
+    if (resp.status === 502) {
+      let body = {};
+      try { body = await resp.json(); } catch (_) {}
+      return { _failed: true, error: body.error || 'verification_failed' };
+    }
+    if (!resp.ok) {
+      let txt = '';
+      try { txt = await resp.text(); } catch (_) {}
+      return { _failed: true, error: 'HTTP ' + resp.status + (txt ? (' — ' + txt.slice(0, 120)) : '') };
+    }
+    const d = await resp.json();
+    _emailCache.set(key, d);
+    return d;
+  } catch (e) {
+    return { _failed: true, error: (e && e.message) || 'network error' };
+  }
+}
+
+function _copyToClipboard(text, btn) {
+  if (!text) return;
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).then(function() {
+      const orig = btn.textContent;
+      btn.textContent = 'Copied!';
+      setTimeout(function() { btn.textContent = orig; }, 1200);
+    }).catch(function() { alert('Copy failed. Email: ' + text); });
+  } else {
+    alert('Email: ' + text);
+  }
+}
+
+// Save the verified email to Airtable. First verified email -> Contact Email + Contact Name.
+// Subsequent -> append "\nAlt contact: {name} <{email}>" to Notes (lossless, no schema change).
+async function _saveOfficerEmailToCRM(companyNumber, officerFullName, email, saveBtn) {
+  if (!companyNumber || !email) return;
+  const origText = saveBtn.textContent;
+  saveBtn.textContent = 'Saving…';
+  saveBtn.disabled = true;
+  try {
+    const rec = await findCompanyByNumber(companyNumber);
+    if (!rec) {
+      alert("This company isn't in Airtable yet. Click Save Prospect first to create the company record, then come back and Save to CRM.");
+      saveBtn.textContent = origText;
+      saveBtn.disabled = false;
+      return;
+    }
+    const fields = rec.fields || {};
+    const existingEmail = String(fields['Contact Email'] || '').trim();
+    const existingNotes = String(fields['Notes'] || '');
+    let patchFields;
+    if (!existingEmail) {
+      patchFields = { 'Contact Email': email, 'Contact Name': officerFullName };
+    } else if (existingEmail.toLowerCase() === email.toLowerCase()) {
+      saveBtn.textContent = '✓ Already in CRM';
+      return; // disabled remains true
+    } else {
+      const note = 'Alt contact: ' + officerFullName + ' <' + email + '>';
+      // Don't duplicate if the same alt-contact note is already there.
+      if (existingNotes.indexOf(note) !== -1) {
+        saveBtn.textContent = '✓ Already in Notes';
+        return;
+      }
+      const newNotes = existingNotes ? (existingNotes + '\n' + note) : note;
+      patchFields = { 'Notes': newNotes };
+    }
+    const resp = await fetch(AT_COMPANIES_URL + '/' + rec.id, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ fields: patchFields }),
+    });
+    if (!resp.ok) {
+      let txt = '';
+      try { txt = await resp.text(); } catch (_) {}
+      throw new Error('HTTP ' + resp.status + (txt ? ' — ' + txt.slice(0, 120) : ''));
+    }
+    saveBtn.textContent = '✓ Saved to CRM';
+  } catch (e) {
+    alert('Save to CRM failed: ' + ((e && e.message) || 'unknown'));
+    saveBtn.textContent = origText;
+    saveBtn.disabled = false;
+  }
+}
+
+function _renderEmailResult(line, result, kind, originalChName, companyNumber) {
+  line.innerHTML = '';
+  line.className = kind + '-of-email-result-line';
+  if (result._capHit) {
+    line.classList.add('err');
+    line.textContent = 'Daily cap reached (100). Try tomorrow.';
+    return;
+  }
+  if (result._failed) {
+    line.classList.add('err');
+    line.textContent = 'Lookup failed: ' + (result.error || 'unknown');
+    return;
+  }
+  const hasEmail = !!result.email;
+  if (result.verified && hasEmail) {
+    line.classList.add('verified');
+    const icon = document.createElement('span'); icon.className = 'nm-icon'; icon.textContent = '✓';
+    const addr = document.createElement('span'); addr.className = 'addr'; addr.textContent = result.email;
+    const copy = document.createElement('button'); copy.type = 'button'; copy.className = 'copy'; copy.textContent = 'Copy';
+    copy.addEventListener('click', function(e) { e.stopPropagation(); _copyToClipboard(result.email, copy); });
+    line.appendChild(icon); line.appendChild(addr); line.appendChild(copy);
+    if (kind === 'dp' && companyNumber) {
+      const save = document.createElement('button'); save.type = 'button'; save.className = 'save'; save.textContent = 'Save to CRM';
+      save.addEventListener('click', function(e) {
+        e.stopPropagation();
+        _saveOfficerEmailToCRM(companyNumber, _formatOfficerNameForCRM(originalChName), result.email, save);
+      });
+      line.appendChild(save);
+    }
+    return;
+  }
+  if (!result.verified && hasEmail) {
+    line.classList.add('low');
+    const icon = document.createElement('span'); icon.className = 'nm-icon'; icon.textContent = '⚠';
+    const addr = document.createElement('span'); addr.className = 'addr'; addr.textContent = result.email;
+    line.appendChild(icon); line.appendChild(addr);
+    if (result.reason) {
+      const reason = document.createElement('span'); reason.className = 'reason'; reason.textContent = '(' + result.reason + ')';
+      line.appendChild(reason);
+    }
+    const copy = document.createElement('button'); copy.type = 'button'; copy.className = 'copy'; copy.textContent = 'Copy';
+    copy.addEventListener('click', function(e) { e.stopPropagation(); _copyToClipboard(result.email, copy); });
+    line.appendChild(copy);
+    if (kind === 'dp' && companyNumber) {
+      const save = document.createElement('button'); save.type = 'button'; save.className = 'save'; save.textContent = 'Save to CRM';
+      save.addEventListener('click', function(e) {
+        e.stopPropagation();
+        if (!confirm('Low-confidence match (' + (result.reason || 'no reason given') + '). Save to CRM anyway?')) return;
+        _saveOfficerEmailToCRM(companyNumber, _formatOfficerNameForCRM(originalChName), result.email, save);
+      });
+      line.appendChild(save);
+    }
+    return;
+  }
+  // No deliverable email
+  line.classList.add('none');
+  const icon = document.createElement('span'); icon.className = 'nm-icon'; icon.textContent = '✗';
+  const msg = document.createElement('span'); msg.textContent = 'No deliverable address found';
+  line.appendChild(icon); line.appendChild(msg);
+  if (result.reason) {
+    const reason = document.createElement('span'); reason.className = 'reason'; reason.textContent = '(' + result.reason + ')';
+    line.appendChild(reason);
+  }
+}
+
+function _renderDomainInputRow(panel, companyNumber, kind) {
+  const cached = _emailDomainCache.get(companyNumber) || '';
+  const fromDpEmail = _domainFromEmail((document.getElementById('dp-email') || {}).value || '');
+  const fromMEmail = _domainFromEmail((document.getElementById('m-email') || {}).value || '');
+  const defaultDomain = cached || fromDpEmail || fromMEmail || '';
+  const row = document.createElement('div');
+  row.className = kind + '-domain-row';
+  const label = document.createElement('span');
+  label.className = kind + '-domain-label';
+  label.textContent = 'Email domain:';
+  const input = document.createElement('input');
+  input.type = 'text';
+  input.className = kind + '-domain-input';
+  input.placeholder = 'e.g. tesco.com';
+  input.value = defaultDomain;
+  input.addEventListener('input', function() {
+    const v = (input.value || '').trim().toLowerCase();
+    if (v) _emailDomainCache.set(companyNumber, v);
+  });
+  row.appendChild(label);
+  row.appendChild(input);
+  panel.appendChild(row);
+}
+
+function _attachFindEmailUI(row, officer, panel, companyNumber, kind) {
+  const parsed = _parseOfficerName(officer.name);
+  if (!parsed) return; // corporate officer — skip silently
+
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = kind + '-of-email-btn';
+  btn.textContent = 'Find Email';
+  row.appendChild(btn);
+
+  const resultLine = document.createElement('div');
+  resultLine.className = kind + '-of-email-result-line';
+  row.parentNode.insertBefore(resultLine, row.nextSibling);
+
+  // If we already have a cached result for this officer at the cached domain, render it immediately.
+  const cachedDomain = _emailDomainCache.get(companyNumber) || '';
+  if (cachedDomain) {
+    const key = _emailKey(companyNumber, parsed.firstName, parsed.lastName, cachedDomain);
+    if (_emailCache.has(key)) {
+      _renderEmailResult(resultLine, _emailCache.get(key), kind, officer.name, companyNumber);
+    }
+  }
+
+  btn.addEventListener('click', async function(e) {
+    e.stopPropagation();
+    if (_emailCapHit) {
+      _renderEmailResult(resultLine, { _capHit: true }, kind, officer.name, companyNumber);
+      return;
+    }
+    const domainInput = panel.querySelector('.' + kind + '-domain-input');
+    const domain = (domainInput && domainInput.value || '').trim().toLowerCase();
+    if (!domain) {
+      _renderEmailResult(resultLine, { _failed: true, error: "Enter the company's email domain first" }, kind, officer.name, companyNumber);
+      if (domainInput) domainInput.focus();
+      return;
+    }
+    _emailDomainCache.set(companyNumber, domain);
+    const key = _emailKey(companyNumber, parsed.firstName, parsed.lastName, domain);
+    if (_emailCache.has(key)) {
+      _renderEmailResult(resultLine, _emailCache.get(key), kind, officer.name, companyNumber);
+      return;
+    }
+    const origLabel = btn.textContent;
+    btn.textContent = 'Verifying…';
+    btn.disabled = true;
+    try {
+      const result = await _findOfficerEmail(parsed.firstName, parsed.lastName, domain, companyNumber);
+      _renderEmailResult(resultLine, result, kind, officer.name, companyNumber);
+    } finally {
+      btn.textContent = origLabel;
+      btn.disabled = false;
+    }
+  });
+}
+
+function _renderOfficersPanel(panel, data, companyNumber) {
   panel.innerHTML = '';
 
   // --- Active Officers ---
@@ -1635,6 +1965,10 @@ function _renderOfficersPanel(panel, data) {
       none.textContent = 'No active officers listed';
       panel.appendChild(none);
     } else {
+      // Domain input row — only if there's at least one officer with a parseable name
+      var hasParseable = companyNumber && active.some(function(o) { return _parseOfficerName(o.name); });
+      if (hasParseable) _renderDomainInputRow(panel, companyNumber, 'pc');
+
       active.forEach(function(o) {
         var row = document.createElement('div');
         row.className = 'pc-officers-row';
@@ -1647,6 +1981,7 @@ function _renderOfficersPanel(panel, data) {
           ' — Appointed: ' + (o.appointed_on || 'unknown')
         ));
         panel.appendChild(row);
+        if (companyNumber) _attachFindEmailUI(row, o, panel, companyNumber, 'pc');
       });
     }
   }
@@ -1714,7 +2049,7 @@ function _attachCardExtras(card, companyName, companyNum) {
         return;
       }
       if (_officersCache.has(companyNum)) {
-        _renderOfficersPanel(panel, _officersCache.get(companyNum));
+        _renderOfficersPanel(panel, _officersCache.get(companyNum), companyNum);
         panel.classList.add('open');
         return;
       }
@@ -1725,7 +2060,7 @@ function _attachCardExtras(card, companyName, companyNum) {
         .then(function(r) { return r.json(); })
         .then(function(d) {
           _officersCache.set(companyNum, d);
-          _renderOfficersPanel(panel, d);
+          _renderOfficersPanel(panel, d, companyNum);
           panel.classList.add('open');
         })
         .catch(function(err) {
@@ -2349,7 +2684,7 @@ function toggleDetailOfficers() {
     return;
   }
   if (_officersCache.has(currentProspect.number)) {
-    _renderDpOfficersPanel(panel, _officersCache.get(currentProspect.number));
+    _renderDpOfficersPanel(panel, _officersCache.get(currentProspect.number), currentProspect.number);
     panel.classList.add('open');
     return;
   }
@@ -2360,7 +2695,7 @@ function toggleDetailOfficers() {
     .then(function(r) { return r.json(); })
     .then(function(d) {
       _officersCache.set(currentProspect.number, d);
-      _renderDpOfficersPanel(panel, d);
+      _renderDpOfficersPanel(panel, d, currentProspect.number);
       panel.classList.add('open');
     })
     .catch(function(err) {
@@ -2377,7 +2712,7 @@ function toggleDetailOfficers() {
     });
 }
 
-function _renderDpOfficersPanel(panel, data) {
+function _renderDpOfficersPanel(panel, data, companyNumber) {
   panel.innerHTML = '';
 
   // --- Active Officers ---
@@ -2400,6 +2735,10 @@ function _renderDpOfficersPanel(panel, data) {
       none.textContent = 'No active officers listed';
       panel.appendChild(none);
     } else {
+      // Domain input row — only if there's at least one officer with a parseable name
+      const hasParseable = companyNumber && active.some(function(o) { return _parseOfficerName(o.name); });
+      if (hasParseable) _renderDomainInputRow(panel, companyNumber, 'dp');
+
       active.forEach(function(o) {
         const row = document.createElement('div');
         row.className = 'dp-officers-row';
@@ -2412,6 +2751,7 @@ function _renderDpOfficersPanel(panel, data) {
           ' — Appointed: ' + (o.appointed_on || 'unknown')
         ));
         panel.appendChild(row);
+        if (companyNumber) _attachFindEmailUI(row, o, panel, companyNumber, 'dp');
       });
     }
   }
