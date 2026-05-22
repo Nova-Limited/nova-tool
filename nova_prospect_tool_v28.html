@@ -539,6 +539,16 @@ body { font-family: 'Georgia', serif; background: #e8eaf0; color: var(--text); m
         </select>
       </div>
     </div>
+    <div class="dp-row" style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-top:0.75rem;">
+      <div>
+        <label style="display:block;font-size:0.7rem;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;opacity:0.7;margin-bottom:0.25rem;">Site Phone</label>
+        <input type="tel" id="dp-phone" placeholder="From Google Places or enter manually" style="width:100%;padding:0.55rem 0.75rem;border:1px solid #d0d0d5;border-radius:4px;font-family:inherit;font-size:0.9rem;" />
+      </div>
+      <div>
+        <label style="display:block;font-size:0.7rem;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;opacity:0.7;margin-bottom:0.25rem;">Website</label>
+        <input type="url" id="dp-website" placeholder="From Google Places or enter manually" style="width:100%;padding:0.55rem 0.75rem;border:1px solid #d0d0d5;border-radius:4px;font-family:inherit;font-size:0.9rem;" />
+      </div>
+    </div>
     <div class="addr-buttons">
       <button class="addr-btn addr-btn-copy" onclick="copyAddress()">
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
@@ -784,11 +794,44 @@ function renderPlacesResult(result, panel) {
       if (m.nationalPhoneNumber) block.push(`<div><strong>Phone:</strong> ${m.nationalPhoneNumber}</div>`);
       if (m.websiteUri) block.push(`<div><strong>Website:</strong> <a href="${m.websiteUri}" target="_blank" rel="noopener">${m.websiteUri}</a></div>`);
       if (m.googleMapsUri) block.push(`<div><strong>Maps:</strong> <a href="${m.googleMapsUri}" target="_blank" rel="noopener">Open in Google Maps</a></div>`);
+      block.push(`<div style="margin-top:0.5rem;"><button type="button" onclick='applyPlacesMatch(${JSON.stringify(m).replace(/'/g, "&#39;")})' style="background:#2a9d4a;color:white;border:none;padding:0.4rem 0.9rem;border-radius:4px;font-family:inherit;font-size:0.8rem;font-weight:600;cursor:pointer;letter-spacing:0.02em;">Use this match</button></div>`);
       lines.push(block.join(''));
     });
   }
 
   panel.innerHTML = `<div style="padding:0.75rem;background:#f5f5f7;border-radius:4px;font-size:0.85rem;line-height:1.5;">${lines.join('')}</div>`;
+}
+
+function applyPlacesMatch(match) {
+  if (!match) return;
+  const addrEl = document.getElementById('dp-address');
+  const phoneEl = document.getElementById('dp-phone');
+  const websiteEl = document.getElementById('dp-website');
+
+  if (addrEl && match.formattedAddress) { addrEl.value = match.formattedAddress; addrEl.style.color = ''; }
+  if (phoneEl && match.nationalPhoneNumber) phoneEl.value = match.nationalPhoneNumber;
+  if (websiteEl && match.websiteUri) websiteEl.value = match.websiteUri;
+
+  if (currentProspect) {
+    if (match.formattedAddress) currentProspect.address = match.formattedAddress;
+    if (match.nationalPhoneNumber) currentProspect.phone = match.nationalPhoneNumber;
+    if (match.websiteUri) currentProspect.website = match.websiteUri;
+  }
+
+  if (match.websiteUri && currentProspect && currentProspect.number) {
+    try {
+      const u = new URL(match.websiteUri);
+      const domain = u.hostname.replace(/^www\./i, '');
+      if (domain) _emailDomainCache.set(currentProspect.number, domain);
+    } catch(e) {}
+  }
+
+  [addrEl, phoneEl, websiteEl].forEach(el => {
+    if (!el) return;
+    const orig = el.style.background;
+    el.style.background = '#e6f4ea';
+    setTimeout(() => { el.style.background = orig; }, 1200);
+  });
 }
 
 async function findSitesUnderCompany(companyRecord, address) {
@@ -869,6 +912,7 @@ async function saveProspectToAirtable(data, stage) {
         'Total Sites Count': 1,
         'Active Sites Count': 1,
         'Total Roof Area m2': roofArea,
+        'Website': data.website || '',
         'Notes': `Ref: ${data.refNum || ''}. Added via Nova Prospect Tool.`
       }})
     });
@@ -885,6 +929,7 @@ async function saveProspectToAirtable(data, stage) {
       'Sector': sd.label,
       'Roof Area m2': roofArea,
       'Active': true,
+      'ContactPhone': data.phone || '',
       'Company': [companyId]
     }})
   });
@@ -902,7 +947,8 @@ async function saveProspectToAirtable(data, stage) {
         body: JSON.stringify({ fields: {
           'Total Sites Count': oldTotal + 1,
           'Active Sites Count': oldActive + 1,
-          'Total Roof Area m2': oldRoof + roofArea
+          'Total Roof Area m2': oldRoof + roofArea,
+          ...(data.website ? { 'Website': data.website } : {})
         }})
       });
     } catch(_) {}
@@ -3158,6 +3204,8 @@ async function saveCurrentProspect() {
   const address = document.getElementById('dp-address').value;
   const refNum = 'NOV-' + (Math.floor(Math.random()*90000)+10000);
 
+  const phoneEl = document.getElementById('dp-phone');
+  const websiteEl = document.getElementById('dp-website');
   const entry = {
     name: currentProspect.name,
     address,
@@ -3168,6 +3216,8 @@ async function saveCurrentProspect() {
     contact: document.getElementById('dp-contact').value.trim(),
     jobTitle: document.getElementById('dp-job-title').value.trim(),
     email: document.getElementById('dp-email').value.trim(),
+    phone: phoneEl ? phoneEl.value.trim() : '',
+    website: websiteEl ? websiteEl.value.trim() : '',
     savedAt: new Date().toISOString()
   };
 
