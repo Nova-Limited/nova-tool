@@ -595,6 +595,8 @@ body { font-family: 'Georgia', serif; background: #e8eaf0; color: var(--text); m
     </div>
     <div class="dp-actions">
       <button class="dp-btn dp-btn-gen" onclick="generateFromDetail()">Generate Proposal</button>
+      <button id="dp-places-btn" class="dp-btn" style="background:#4285f4;color:white;" onclick="runPlacesLookup()">Search Company</button>
+      <div id="dp-places-panel" style="display:none;grid-column:1/-1;margin-top:0.5rem;"></div>
       <button class="dp-btn dp-btn-save" onclick="saveCurrentProspect()">Save Prospect</button>
       <button class="dp-btn" style="background:#6c3fa0;color:white;padding:0.55rem 1rem;border:none;border-radius:5px;font-size:0.72rem;font-family:sans-serif;font-weight:700;letter-spacing:0.5px;text-transform:uppercase;cursor:pointer;" onclick="openVisualiser()">&#x2600; Solar Visualiser</button>
       <button class="dp-btn dp-btn-skip" onclick="clearDetail()">Clear</button>
@@ -721,6 +723,72 @@ async function findCompanyByNumber(companyNumber) {
     const data = await resp.json();
     return (data.records && data.records[0]) || null;
   } catch(e) { return null; }
+}
+
+async function searchCompanyOnPlaces(companyName, companyNumber) {
+  if (!companyName) return null;
+  try {
+    const resp = await fetch(`${CH_PROXY}/places`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ companyName: companyName, companyNumber: companyNumber || null })
+    });
+    if (!resp.ok) {
+      console.error('Places lookup failed:', resp.status);
+      return null;
+    }
+    return await resp.json();
+  } catch(e) {
+    console.error('Places lookup error:', e);
+    return null;
+  }
+}
+
+async function runPlacesLookup() {
+  if (!currentProspect || !currentProspect.name) {
+    alert('No prospect loaded.');
+    return;
+  }
+  const btn = document.getElementById('dp-places-btn');
+  const panel = document.getElementById('dp-places-panel');
+  if (btn) { btn.disabled = true; btn.textContent = 'Searching...'; }
+  if (panel) { panel.style.display = 'block'; panel.innerHTML = '<div style="opacity:0.7;font-size:0.85rem;">Searching Google Places...</div>'; }
+
+  const result = await searchCompanyOnPlaces(currentProspect.name, currentProspect.number);
+
+  if (btn) { btn.disabled = false; btn.textContent = 'Search Company'; }
+  renderPlacesResult(result, panel);
+}
+
+function renderPlacesResult(result, panel) {
+  if (!panel) return;
+  if (!result) {
+    panel.innerHTML = '<div style="color:#c44;font-size:0.85rem;padding:0.5rem;background:#fee;border-radius:4px;">Places lookup failed. Try again or check the console.</div>';
+    return;
+  }
+  const confidenceColors = { high: '#2a9d4a', ambiguous: '#d49b00', low: '#c44', none: '#888' };
+  const c = confidenceColors[result.confidence] || '#888';
+  const matches = Array.isArray(result.matches) ? result.matches : [];
+
+  const lines = [];
+  lines.push(`<div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.75rem;"><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${c};"></span><strong style="text-transform:uppercase;font-size:0.75rem;letter-spacing:0.05em;">Confidence: ${result.confidence || 'unknown'}</strong>${result.cacheHit ? '<span style="font-size:0.7rem;opacity:0.6;">(cached)</span>' : ''}</div>`);
+
+  if (matches.length === 0) {
+    lines.push('<div style="opacity:0.7;">No matches returned from Google Places.</div>');
+  } else {
+    matches.forEach((m, i) => {
+      const block = [];
+      if (matches.length > 1) block.push(`<div style="font-weight:600;margin-top:${i === 0 ? '0' : '0.75rem'};opacity:0.7;font-size:0.75rem;">MATCH ${i + 1}</div>`);
+      if (m.displayName) block.push(`<div><strong>Name:</strong> ${m.displayName}</div>`);
+      if (m.formattedAddress) block.push(`<div><strong>Address:</strong> ${m.formattedAddress}</div>`);
+      if (m.nationalPhoneNumber) block.push(`<div><strong>Phone:</strong> ${m.nationalPhoneNumber}</div>`);
+      if (m.websiteUri) block.push(`<div><strong>Website:</strong> <a href="${m.websiteUri}" target="_blank" rel="noopener">${m.websiteUri}</a></div>`);
+      if (m.googleMapsUri) block.push(`<div><strong>Maps:</strong> <a href="${m.googleMapsUri}" target="_blank" rel="noopener">Open in Google Maps</a></div>`);
+      lines.push(block.join(''));
+    });
+  }
+
+  panel.innerHTML = `<div style="padding:0.75rem;background:#f5f5f7;border-radius:4px;font-size:0.85rem;line-height:1.5;">${lines.join('')}</div>`;
 }
 
 async function findSitesUnderCompany(companyRecord, address) {
