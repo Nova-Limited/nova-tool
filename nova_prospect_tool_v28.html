@@ -713,7 +713,7 @@ const AT_SITES_URL = `${CH_PROXY}/airtable/v0/${AT_BASE}/${AT_SITES}`;
 
 async function findCompanyByNumber(companyNumber) {
   if (!companyNumber) return null;
-  const filter = `{Company Number}="${String(companyNumber).replace(/"/g, '\\"')}"`;
+  const filter = `{CompanyNumber}="${String(companyNumber).replace(/"/g, '\\"')}"`;
   const url = `${AT_COMPANIES_URL}?filterByFormula=${encodeURIComponent(filter)}&maxRecords=1`;
   try {
     const resp = await fetch(url);
@@ -792,7 +792,7 @@ async function saveProspectToAirtable(data, stage) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ fields: {
         'Company Name': data.name,
-        'Company Number': data.number || '',
+        'CompanyNumber': data.number || '',
         'Contact Name': data.contact || '',
         'Contact Title': data.jobTitle || '',
         'Contact Email': data.email || '',
