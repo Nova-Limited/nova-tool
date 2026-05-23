@@ -735,6 +735,23 @@ async function findCompanyByNumber(companyNumber) {
   } catch(e) { return null; }
 }
 
+async function findCompanyByName(companyName) {
+  if (!companyName) return null;
+  try {
+    const cleaned = (typeof _cleanCompanyName === 'function') ? _cleanCompanyName(companyName) : companyName;
+    const escaped = String(cleaned).replace(/"/g, '\\"');
+    const filter = `{Company Name}="${escaped}"`;
+    const url = `${AT_COMPANIES_URL}?filterByFormula=${encodeURIComponent(filter)}&maxRecords=1`;
+    const resp = await fetch(url);
+    if (!resp.ok) return null;
+    const data = await resp.json();
+    return (data.records && data.records.length > 0) ? data.records[0] : null;
+  } catch(e) {
+    console.error('findCompanyByName error:', e);
+    return null;
+  }
+}
+
 async function searchCompanyOnPlaces(companyName, companyNumber) {
   if (!companyName) return null;
   try {
@@ -855,6 +872,7 @@ async function saveProspectToAirtable(data, stage) {
   const roofArea = Number(data.roofArea) || 0;
   let companyRecord = null;
   if (data.number) companyRecord = await findCompanyByNumber(data.number);
+  else if (data.name) companyRecord = await findCompanyByName(data.name);
 
   if (companyRecord) {
     const existingName = (companyRecord.fields || {})['Company Name'] || data.name;
