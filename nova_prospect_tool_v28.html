@@ -833,6 +833,7 @@ function applyPlacesMatch(match) {
     if (match.formattedAddress) currentProspect.address = match.formattedAddress;
     if (match.nationalPhoneNumber) currentProspect.phone = match.nationalPhoneNumber;
     if (match.websiteUri) currentProspect.website = match.websiteUri;
+    if (match.displayName) currentProspect.placesName = match.displayName;
     if (match.location && match.location.latitude && match.location.longitude) {
       currentProspect.location = { lat: match.location.latitude, lng: match.location.longitude };
     }
@@ -2802,9 +2803,53 @@ function openMaps() {
 }
 
 function openEarth() {
-  const addr = document.getElementById('dp-address').value;
-  if (!addr || addr.includes('Looking')) { alert('No address available yet.'); return; }
-  window.open('https://earth.google.com/web/search/' + encodeURIComponent(addr), '_blank');
+  // Require Places-sourced coordinates for precision.
+  if (!currentProspect || !currentProspect.location || typeof currentProspect.location.lat !== 'number' || typeof currentProspect.location.lng !== 'number') {
+    alert('Precise site coordinates not available yet.\n\nClick Search Company and then Use this match on the correct Google Places result. Once that\'s done, Open Earth will download a KML file pinned to the exact site for Google Earth Pro.');
+    return;
+  }
+
+  const lat = currentProspect.location.lat;
+  const lng = currentProspect.location.lng;
+  const placemarkName = (currentProspect.placesName || currentProspect.name || 'Site').replace(/[<>&"']/g, '');
+  const description = (currentProspect.address || '').replace(/[<>&"']/g, '');
+
+  const kml = `<?xml version="1.0" encoding="UTF-8"?>
+<kml xmlns="http://www.opengis.net/kml/2.2">
+  <Document>
+    <name>${placemarkName}</name>
+    <Placemark>
+      <name>${placemarkName}</name>
+      <description>${description}</description>
+      <Point>
+        <coordinates>${lng},${lat},0</coordinates>
+      </Point>
+      <LookAt>
+        <longitude>${lng}</longitude>
+        <latitude>${lat}</latitude>
+        <altitude>0</altitude>
+        <range>300</range>
+        <tilt>0</tilt>
+        <heading>0</heading>
+      </LookAt>
+    </Placemark>
+  </Document>
+</kml>`;
+
+  // Build a safe filename from the placemark name.
+  const safeFilename = placemarkName.replace(/[^a-zA-Z0-9_\-]+/g, '_').replace(/^_+|_+$/g, '') || 'site';
+
+  // Trigger download via Blob + anchor.
+  const blob = new Blob([kml], { type: 'application/vnd.google-earth.kml+xml' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `${safeFilename}.kml`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  // Revoke the blob URL after a short delay to let the download initiate.
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
 function openLinkedIn() {
