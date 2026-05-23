@@ -833,6 +833,9 @@ function applyPlacesMatch(match) {
     if (match.formattedAddress) currentProspect.address = match.formattedAddress;
     if (match.nationalPhoneNumber) currentProspect.phone = match.nationalPhoneNumber;
     if (match.websiteUri) currentProspect.website = match.websiteUri;
+    if (match.location && match.location.latitude && match.location.longitude) {
+      currentProspect.location = { lat: match.location.latitude, lng: match.location.longitude };
+    }
   }
 
   if (match.websiteUri && currentProspect && currentProspect.number) {
@@ -931,6 +934,7 @@ async function saveProspectToAirtable(data, stage) {
         'Active Sites Count': 1,
         'TotalRoofArea': roofArea,
         'Website': data.website || '',
+        'RegisteredOffice': data.registeredOffice || '',
         'Notes': `Ref: ${data.refNum || ''}. Added via Nova Prospect Tool.`
       }})
     });
@@ -966,7 +970,8 @@ async function saveProspectToAirtable(data, stage) {
           'Total Sites Count': oldTotal + 1,
           'Active Sites Count': oldActive + 1,
           'TotalRoofArea': oldRoof + roofArea,
-          ...(data.website ? { 'Website': data.website } : {})
+          ...(data.website ? { 'Website': data.website } : {}),
+          ...(data.registeredOffice ? { 'RegisteredOffice': data.registeredOffice } : {})
         }})
       });
     } catch(_) {}
@@ -1767,6 +1772,19 @@ const _officersCache = new Map(); // companyNumber -> /officers/{num} response
 function _cleanCompanyName(name) {
   // Strip trailing " Limited", " Ltd", " Ltd.", " PLC", " plc" (case-insensitive)
   return String(name || '').replace(/[\s,]+(limited|ltd\.?|plc|p\.l\.c\.)\s*$/i, '').trim();
+}
+
+function _formatChRegisteredOffice(roObj) {
+  if (!roObj || typeof roObj !== 'object') return '';
+  const parts = [
+    roObj.address_line_1,
+    roObj.address_line_2,
+    roObj.locality,
+    roObj.region,
+    roObj.postal_code,
+    roObj.country
+  ].filter(p => p && String(p).trim().length > 0);
+  return parts.join(', ');
 }
 
 function _prettyOfficerRole(role) {
@@ -2671,7 +2689,8 @@ async function selectProspect(company, cardEl, sectorKey) {
     address: '',
     number: company.company_number,
     type: company.company_type,
-    status: company.company_status
+    status: company.company_status,
+    registeredOffice: _formatChRegisteredOffice(company.registered_office_address)
   };
 
   document.getElementById('welcome-screen').style.display = 'none';
@@ -3085,6 +3104,15 @@ function pickLookupResult(idx) {
   currentProspect.number = item.company_number || '';
   currentProspect.type = item.company_type || '';
   currentProspect.status = item.company_status || 'active';
+  // Populate registeredOffice from whichever shape the search result provided.
+  // address_snippet is the standard search response; item.address is the advanced search response.
+  if (!currentProspect.registeredOffice) {
+    if (item.address && typeof item.address === 'object') {
+      currentProspect.registeredOffice = _formatChRegisteredOffice(item.address);
+    } else if (item.address_snippet && typeof item.address_snippet === 'string') {
+      currentProspect.registeredOffice = item.address_snippet.trim();
+    }
+  }
   const profileName = item.title || item.company_name || item.name || '';
   if (profileName) {
     currentProspect.name = profileName;
@@ -3236,6 +3264,7 @@ async function saveCurrentProspect() {
     email: document.getElementById('dp-email').value.trim(),
     phone: phoneEl ? phoneEl.value.trim() : '',
     website: websiteEl ? websiteEl.value.trim() : '',
+    registeredOffice: currentProspect && currentProspect.registeredOffice ? currentProspect.registeredOffice : '',
     savedAt: new Date().toISOString()
   };
 
