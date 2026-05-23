@@ -911,7 +911,7 @@ async function saveProspectToAirtable(data, stage) {
         'Sector': sd.label,
         'Total Sites Count': 1,
         'Active Sites Count': 1,
-        'Total Roof Area m2': roofArea,
+        'TotalRoofArea': roofArea,
         'Website': data.website || '',
         'Notes': `Ref: ${data.refNum || ''}. Added via Nova Prospect Tool.`
       }})
@@ -939,7 +939,7 @@ async function saveProspectToAirtable(data, stage) {
   if (companyRecord) {
     const oldTotal = Number((companyRecord.fields || {})['Total Sites Count']) || 0;
     const oldActive = Number((companyRecord.fields || {})['Active Sites Count']) || 0;
-    const oldRoof = Number((companyRecord.fields || {})['Total Roof Area m2']) || 0;
+    const oldRoof = Number((companyRecord.fields || {})['TotalRoofArea']) || 0;
     try {
       await fetch(`${AT_COMPANIES_URL}/${companyId}`, {
         method: 'PATCH',
@@ -947,7 +947,7 @@ async function saveProspectToAirtable(data, stage) {
         body: JSON.stringify({ fields: {
           'Total Sites Count': oldTotal + 1,
           'Active Sites Count': oldActive + 1,
-          'Total Roof Area m2': oldRoof + roofArea,
+          'TotalRoofArea': oldRoof + roofArea,
           ...(data.website ? { 'Website': data.website } : {})
         }})
       });
