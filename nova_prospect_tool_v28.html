@@ -566,7 +566,7 @@ body { font-family: 'Georgia', serif; background: #e8eaf0; color: var(--text); m
         <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M19 3a2 2 0 012 2v14a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h14m-.5 15.5v-5.3a3.26 3.26 0 00-3.26-3.26c-.85 0-1.84.52-2.32 1.3v-1.11h-2.79v8.37h2.79v-4.93c0-.77.62-1.4 1.39-1.4a1.4 1.4 0 011.4 1.4v4.93h2.79M6.88 8.56a1.68 1.68 0 001.68-1.68c0-.93-.75-1.69-1.68-1.69a1.69 1.69 0 00-1.69 1.69c0 .93.76 1.68 1.69 1.68m1.39 9.94v-8.37H5.5v8.37h2.77z"/></svg>
         LinkedIn
       </button>
-      <button class="addr-btn addr-btn-lookup" id="dp-lookup-btn" onclick="toggleDetailLookup()" style="display:none;">
+      <button class="addr-btn addr-btn-lookup" id="dp-lookup-btn" onclick="toggleDetailLookup()" style="display:inline-block;">
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
         Look up on CH
       </button>
@@ -3240,8 +3240,12 @@ async function runDetailLookup() {
       const metaParts = [];
       if (num) metaParts.push('No. ' + num);
       if (type) metaParts.push(type);
-      if (status) metaParts.push(status);
-      if (date) metaParts.push('Inc. ' + date);
+      if (date) {
+        // Show just the year from date_of_creation, e.g. "1965-09-13" → "Inc. 1965"
+        const year = String(date).slice(0, 4);
+        if (/^\d{4}$/.test(year)) metaParts.push('Inc. ' + year);
+        else metaParts.push('Inc. ' + date);
+      }
 
       const row = document.createElement('div');
       row.className = 'dp-lookup-row';
@@ -3253,6 +3257,22 @@ async function runDetailLookup() {
       const meta = document.createElement('div');
       meta.className = 'dp-lookup-row-meta';
       meta.textContent = metaParts.join(' · ');
+      // Add status badge if status is known
+      if (status) {
+        const badge = document.createElement('span');
+        badge.className = 'dp-lookup-row-status';
+        badge.textContent = status;
+        // Status-driven colour: active green, dissolved/liquidation red, others amber
+        const s = String(status).toLowerCase();
+        if (s === 'active') {
+          badge.style.cssText = 'display:inline-block;margin-left:0.5rem;padding:0.1rem 0.45rem;background:#2a9d4a;color:white;border-radius:3px;font-size:0.7rem;font-weight:600;text-transform:uppercase;letter-spacing:0.04em;';
+        } else if (s.includes('dissolved') || s.includes('liquidation') || s.includes('receiver')) {
+          badge.style.cssText = 'display:inline-block;margin-left:0.5rem;padding:0.1rem 0.45rem;background:#c44;color:white;border-radius:3px;font-size:0.7rem;font-weight:600;text-transform:uppercase;letter-spacing:0.04em;';
+        } else {
+          badge.style.cssText = 'display:inline-block;margin-left:0.5rem;padding:0.1rem 0.45rem;background:#d49b00;color:white;border-radius:3px;font-size:0.7rem;font-weight:600;text-transform:uppercase;letter-spacing:0.04em;';
+        }
+        meta.appendChild(badge);
+      }
       const addrEl = document.createElement('div');
       addrEl.className = 'dp-lookup-row-addr';
       addrEl.textContent = addr;
@@ -3486,7 +3506,13 @@ function generateFromManual() {
   const address = document.getElementById('m-address').value.trim();
   const roofArea = parseFloat(document.getElementById('m-roof').value);
   if (!name || !address || !roofArea || roofArea < 100) {
-    alert('Please fill in all fields and enter a roof area of at least 100m².'); return;
+    const missing = [];
+    if (!name) missing.push('Company Name');
+    if (!address) missing.push('Site Address');
+    if (!roofArea) missing.push('Roof Area');
+    else if (roofArea < 100) missing.push('Roof Area (minimum 100m²)');
+    alert('Please provide: ' + missing.join(', ') + '.\n\nOther fields (Contact Name, Job Title, Email, Sector) are optional.');
+    return;
   }
   const contact = document.getElementById('m-contact').value.trim();
   const jobTitle = document.getElementById('m-job-title').value.trim();
