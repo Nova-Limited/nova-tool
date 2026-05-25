@@ -9,7 +9,7 @@
 | Decision | Choice |
 |---|---|
 | Pin source | **Google Earth Pro** — user right-clicks the target building, copies coordinates to clipboard, pastes into nova-tool |
-| Building footprint dataset | **Microsoft Global ML Building Footprints** (primary), **OSM Overpass** (fallback for gaps) — both ODbL, both free |
+| Building footprint dataset | **v1: OSM Overpass.** v2: Microsoft Global ML Building Footprints. Both ODbL, both free. Decided Mon 25 May 2026 — see section 3. |
 | Footprint delivery model | **Worker-mediated** — new `/pin-drop` endpoint on the existing nova-ch-proxy Worker; client never talks to Microsoft / OSM directly |
 | Coordinate input formats accepted | **Decimal degrees** (`50.431375, -4.131317`) and **DMS** (`50°25'52.95"N, 4°7'52.74"W`). Auto-detect and normalise. |
 | Roof area calculation | **Server-side in the Worker** via spherical excess formula on the WGS84 polygon. Single canonical value returned to the client. |
@@ -55,9 +55,11 @@ Bad coordinates are the most common failure mode. Catching them before the Worke
 
 ---
 
-## 3. Microsoft Building Footprints — the reality check
+## 3. Building footprint source — v1 Overpass, v2 Microsoft
 
-### 3.1 What it actually is
+**Decision Mon 25 May 2026:** v1 builds against OSM Overpass. Microsoft Footprints documented below as the Phase 2 swap target — no further deliberation needed when v2 lands. Worker contract from the client's perspective (section 9) is identical across v1 and v2.
+
+### 3.1 What Microsoft Building Footprints actually is
 
 **Not a REST API.** Microsoft's Global ML Building Footprints is a **dataset** released by Microsoft AI for Good. Distribution model:
 
@@ -85,9 +87,9 @@ To answer "what building is at (50.431, -4.131)?" you have to:
 - Cache hot quadkeys in Cloudflare R2 (or Workers KV for small ones) with a 30-day TTL — building footprints change rarely
 - Pre-warm common UK quadkeys (Plymouth area, prospect-rich regions) via a one-time cron job
 
-### 3.3 Recommended MVP shortcut
+### 3.3 v1 backend: OSM Overpass
 
-Build the pipeline against **OpenStreetMap Overpass API** first, then swap in Microsoft Footprints once the rest of the chain is proven. Reasons:
+v1 uses **OpenStreetMap Overpass API**. Microsoft swap is Phase 2. Reasons for starting here:
 
 - Overpass is a hosted REST API: `https://overpass-api.de/api/interpreter` with a single POST containing an Overpass QL query
 - For "find building polygon containing point" the query is one line of Overpass QL
@@ -95,9 +97,9 @@ Build the pipeline against **OpenStreetMap Overpass API** first, then swap in Mi
 - ODbL licence same as Microsoft — no licensing change between MVP and v1.1
 - UK building coverage in OSM is essentially complete for commercial / industrial / warehouse stock — exactly the prospecting target
 
-Once the MVP is proven end-to-end, swap the Worker's footprint backend from Overpass to Microsoft. The Worker contract from the client's perspective stays identical (`{lat,lng}` in, polygon+area out).
+When v2 lands, swap the Worker's footprint backend from Overpass to Microsoft. The Worker contract from the client's perspective stays identical (`{lat,lng}` in, polygon+area out). Estimated v2 build: 3-4 hrs (per section 12 phasing).
 
-### 3.4 Overpass query (MVP backend)
+### 3.4 Overpass query (v1 backend)
 
 ```
 [out:json][timeout:10];
