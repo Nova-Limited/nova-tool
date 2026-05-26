@@ -86,18 +86,19 @@ body { font-family: 'Georgia', serif; background: #e8eaf0; color: var(--text); m
 .dp-name { font-size: 1.15rem; font-weight: 700; color: var(--dark); font-family: sans-serif; }
 .dp-meta { font-size: 0.75rem; color: var(--muted); font-family: sans-serif; margin-top: 0.2rem; }
 .dp-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.85rem; margin-bottom: 0.75rem; }
-.dp-field label { display: block; font-size: 0.65rem; color: var(--muted); margin-bottom: 0.25rem; font-family: sans-serif; text-transform: uppercase; letter-spacing: 0.5px; }
-.dp-field input, .dp-field select { width: 100%; background: var(--light); border: 1px solid var(--border); color: var(--text); border-radius: 5px; padding: 0.5rem 0.65rem; font-family: sans-serif; font-size: 0.82rem; }
+.dp-field label { display: block; font-size: 0.7rem; color: var(--muted); margin-bottom: 0.3rem; font-family: sans-serif; text-transform: uppercase; letter-spacing: 0.04em; font-weight: 600; }
+.dp-field input, .dp-field select { width: 100%; height: 2.5rem; box-sizing: border-box; background: var(--light); border: 1px solid var(--border); color: var(--text); border-radius: 6px; padding: 0.5rem 0.75rem; font-family: sans-serif; font-size: 0.82rem; }
 .dp-field input.roof-input { border: 2px solid var(--accent); font-weight: 700; font-size: 0.9rem; }
-.addr-buttons { display: flex; gap: 0.5rem; margin-bottom: 0.85rem; align-items: center; flex-wrap: wrap; }
-.addr-btn { display: flex; align-items: center; gap: 0.35rem; padding: 0.42rem 0.85rem; border: none; border-radius: 5px; font-size: 0.68rem; font-family: sans-serif; font-weight: 700; letter-spacing: 0.5px; cursor: pointer; transition: opacity 0.15s; }
+.addr-buttons { display: flex; gap: 0.5rem; margin-bottom: 1rem; align-items: center; flex-wrap: wrap; }
+.addr-btn { display: inline-flex; align-items: center; justify-content: center; gap: 0.4rem; height: 2.5rem; box-sizing: border-box; padding: 0.5rem 1rem; border: none; border-radius: 6px; font-size: 0.72rem; font-family: sans-serif; font-weight: 700; letter-spacing: 0.04em; cursor: pointer; transition: opacity 0.15s; }
 .addr-btn:hover { opacity: 0.85; }
-.addr-btn-copy { background: var(--mid); color: white; }
-.addr-btn-maps { background: var(--green); color: white; }
-.addr-btn-earth { background: var(--accent2); color: white; }
-.addr-btn-linkedin { background: #0077B5; color: white; }
-.addr-btn-officers { background: var(--accent); color: var(--dark); }
-.addr-btn-lookup { background: var(--accent); color: var(--dark); }
+/* All addr-btn variants unified to a single neutral charcoal — these are "open this resource" actions, no semantic colour split needed. */
+.addr-btn-copy,
+.addr-btn-maps,
+.addr-btn-earth,
+.addr-btn-linkedin,
+.addr-btn-officers,
+.addr-btn-lookup { background: #374151; color: white; }
 .dp-lookup-panel { display: none; margin: 0 0 1rem; padding: 0.75rem 0.9rem; background: var(--light); border-left: 3px solid var(--accent); border-radius: 5px; font-family: sans-serif; }
 .dp-lookup-panel.open { display: block; }
 .dp-lookup-search-row { display: flex; gap: 0.5rem; margin-bottom: 0.6rem; }
@@ -163,16 +164,20 @@ body { font-family: 'Georgia', serif; background: #e8eaf0; color: var(--text); m
 .dp-officers-row { font-size: 0.78rem; color: var(--text); margin: 0.22rem 0; line-height: 1.4; }
 .dp-officers-row .nm { color: var(--dark); font-weight: 700; }
 .dp-officers-err { font-size: 0.72rem; color: #c5532a; font-style: italic; }
-.dp-li-row { display: flex; align-items: center; gap: 0.4rem; flex-wrap: wrap; margin-bottom: 0.85rem; }
-.dp-li-label { font-size: 0.6rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; font-family: sans-serif; font-weight: 700; }
-.dp-li-btn { background: rgba(0,119,181,0.1); color: #0077B5; border: 1px solid rgba(0,119,181,0.3); border-radius: 4px; padding: 0.32rem 0.7rem; font-size: 0.62rem; font-weight: 700; font-family: sans-serif; letter-spacing: 0.3px; cursor: pointer; transition: all 0.15s; }
-.dp-li-btn:hover { background: rgba(0,119,181,0.18); border-color: rgba(0,119,181,0.5); }
+.dp-li-row { display: flex; align-items: center; gap: 0.4rem; flex-wrap: wrap; margin-bottom: 1rem; }
+.dp-li-label { font-size: 0.7rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; font-family: sans-serif; font-weight: 600; }
+.dp-li-btn { background: rgba(37,99,235,0.1); color: #2563eb; border: 1px solid rgba(37,99,235,0.3); border-radius: 6px; padding: 0.35rem 0.75rem; font-size: 0.7rem; font-weight: 700; font-family: sans-serif; letter-spacing: 0.04em; cursor: pointer; transition: all 0.15s; }
+.dp-li-btn:hover { background: rgba(37,99,235,0.18); border-color: rgba(37,99,235,0.5); }
 .copy-confirm { font-size: 0.7rem; color: var(--green); font-family: sans-serif; font-weight: 600; display: none; }
-.dp-actions { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0.65rem; }
-.dp-btn { border: none; border-radius: 5px; padding: 0.6rem; font-size: 0.72rem; font-family: sans-serif; font-weight: 700; letter-spacing: 0.5px; cursor: pointer; }
-.dp-btn-gen { background: var(--accent); color: var(--dark); }
-.dp-btn-save { background: var(--green); color: white; }
+.dp-actions { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0.65rem; margin-top: 1rem; }
+.dp-btn { display: inline-flex; align-items: center; justify-content: center; height: 2.5rem; box-sizing: border-box; border: none; border-radius: 6px; padding: 0.5rem 1rem; font-size: 0.72rem; font-family: sans-serif; font-weight: 700; letter-spacing: 0.04em; cursor: pointer; transition: opacity 0.15s; }
+.dp-btn:hover { opacity: 0.9; }
+.dp-btn-gen { background: #f59e0b; color: white; }
+.dp-btn-save { background: #15803d; color: white; }
 .dp-btn-skip { background: var(--light); color: var(--muted); border: 1px solid var(--border); }
+/* Dismiss: muted red — discard action, not alarming. Replaces the old Clear button in the dp-actions row. */
+.dp-btn-dismiss { background: #fdf2f2; color: #b42318; border: 1px solid #fecaca; }
+.dp-btn-dismiss:hover { background: #fae8e8; }
 
 /* PROPOSAL */
 .action-bar { max-width: 820px; margin: 0 auto 1rem; display: flex; gap: 0.65rem; justify-content: flex-end; }
@@ -245,7 +250,7 @@ body { font-family: 'Georgia', serif; background: #e8eaf0; color: var(--text); m
 
 /* === VIS OVERLAY STYLES === */
 .dp-btn-vis-open { background:#6c3fa0; color:white; }
-.solar-import-box { margin-top:1rem; padding:0.85rem; background:var(--light); border:1px solid var(--border); border-radius:6px; }
+.solar-import-box { margin-top:1rem; padding:0.65rem 0.85rem; background:var(--light); border:1px solid var(--border); border-radius:6px; }
 #vis-overlay { display:none; position:fixed; inset:0; z-index:9000; background:#0D0D0D; flex-direction:column; font-family:'Barlow',sans-serif; }
 #vis-overlay.open { display:flex; }
 .vis-header { background:#111; border-bottom:2px solid #E8A020; padding:8px 16px; display:flex; align-items:center; justify-content:space-between; flex-shrink:0; }
@@ -604,15 +609,15 @@ body { font-family: 'Georgia', serif; background: #e8eaf0; color: var(--text); m
       </div>
     </div>
     <div class="dp-row" style="display:grid;grid-template-columns:1fr;gap:0.5rem;margin-top:0.5rem;">
-      <button type="button" id="dp-findemail-btn" class="dp-btn" style="background:#0a66c2;color:white;width:fit-content;" onclick="runFindEmailFromContactField()">Find Email</button>
+      <button type="button" id="dp-findemail-btn" class="dp-btn" style="background:#2563eb;color:white;width:fit-content;" onclick="runFindEmailFromContactField()">Find Email</button>
       <div id="dp-findemail-result" style="display:none;font-size:0.85rem;line-height:1.5;"></div>
     </div>
     <div class="dp-actions">
       <button class="dp-btn dp-btn-gen" onclick="generateFromDetail()">Generate Proposal</button>
-      <button id="dp-places-btn" class="dp-btn" style="background:#4285f4;color:white;" onclick="runPlacesLookup()">Search Company</button>
+      <button id="dp-places-btn" class="dp-btn" style="background:#2563eb;color:white;" onclick="runPlacesLookup()">Search Company</button>
       <div id="dp-places-panel" style="display:none;grid-column:1/-1;margin-top:0.5rem;"></div>
       <button class="dp-btn dp-btn-save" onclick="saveCurrentProspect()">Save Prospect</button>
-      <button class="dp-btn dp-btn-skip" onclick="clearDetail()">Clear</button>
+      <button class="dp-btn dp-btn-dismiss" onclick="dismissCurrent()">Dismiss</button>
     </div>
 
     <!-- Solar Concept Section -->
@@ -626,12 +631,11 @@ body { font-family: 'Georgia', serif; background: #e8eaf0; color: var(--text); m
         <div id="solar-concept-meta" style="font-size:0.7rem;color:var(--muted);font-family:sans-serif;margin-top:0.35rem;"></div>
       </div>
       <div style="display:flex;gap:0.5rem;flex-wrap:wrap;">
-        <button class="dp-btn" style="flex:1;background:#6c3fa0;color:white;padding:0.55rem 1rem;border:none;border-radius:5px;font-size:0.72rem;font-family:sans-serif;font-weight:700;letter-spacing:0.5px;text-transform:uppercase;cursor:pointer;min-width:140px;" onclick="openVisualiser()">&#x2600; Open Visualiser</button>
+        <button class="dp-btn" style="flex:1;background:#6c3fa0;color:white;min-width:140px;text-transform:uppercase;" onclick="openVisualiser()">&#x2600; Open Visualiser</button>
         <button class="dp-btn dp-btn-save" style="flex:1;min-width:140px;" onclick="document.getElementById('novajob-input').click()">&#x1F4C2; Import .novajob</button>
         <button class="dp-btn dp-btn-skip" style="flex:none;display:none;" id="solar-clear-btn" onclick="clearSolarConcept()">&#x2715; Remove</button>
       </div>
       <input type="file" id="novajob-input" accept=".novajob,.json" style="display:none;" onchange="loadNovajob(this)">
-      <div style="font-size:0.68rem;color:var(--muted);font-family:sans-serif;margin-top:0.5rem;">Open the visualiser to trace the roof and generate a solar concept. It will embed automatically in the proposal.</div>
     </div>
   </div>
 
@@ -793,7 +797,7 @@ async function runPlacesLookup() {
 function renderPlacesResult(result, panel) {
   if (!panel) return;
   if (!result) {
-    panel.innerHTML = '<div style="color:#c44;font-size:0.85rem;padding:0.5rem;background:#fee;border-radius:4px;">Places lookup failed. Try again or check the console.</div>';
+    panel.innerHTML = '<div style="color:#c44;font-size:0.85rem;padding:0.5rem;background:#fee;border-radius:6px;">Places lookup failed. Try again or check the console.</div>';
     return;
   }
   const confidenceColors = { high: '#2a9d4a', ambiguous: '#d49b00', low: '#c44', none: '#888' };
@@ -807,31 +811,38 @@ function renderPlacesResult(result, panel) {
     applyPlacesMatch(matches[0]);
   }
 
-  const lines = [];
-  lines.push(`<div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.75rem;"><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${c};"></span><strong style="text-transform:uppercase;font-size:0.75rem;letter-spacing:0.05em;">Confidence: ${result.confidence || 'unknown'}</strong>${result.cacheHit ? '<span style="font-size:0.7rem;opacity:0.6;">(cached)</span>' : ''}${autoApplied ? '<span style="font-size:0.7rem;opacity:0.85;color:#2a9d4a;font-weight:600;">· auto-applied</span>' : ''}</div>`);
+  // Single-line confidence strip: dot · "Confidence: X" · (cached) · · auto-applied
+  const stripParts = [];
+  stripParts.push(`<span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${c};flex-shrink:0;"></span>`);
+  stripParts.push(`<strong style="text-transform:uppercase;font-size:0.7rem;letter-spacing:0.04em;">Confidence: ${result.confidence || 'unknown'}</strong>`);
+  if (result.cacheHit) stripParts.push(`<span style="font-size:0.7rem;opacity:0.6;">(cached)</span>`);
+  if (autoApplied) stripParts.push(`<span style="font-size:0.7rem;color:#2a9d4a;font-weight:600;">· auto-applied</span>`);
+  const strip = `<div style="display:flex;align-items:center;gap:0.4rem;">${stripParts.join('')}</div>`;
 
+  // Body — empty-state or full match-detail block, collapsible by default via <details>.
+  let body = '';
   if (matches.length === 0) {
-    lines.push('<div style="opacity:0.7;">No matches returned from Google Places.</div>');
+    body = '<div style="opacity:0.7;margin-top:0.4rem;">No matches returned from Google Places.</div>';
   } else {
-    matches.forEach((m, i) => {
-      const block = [];
-      if (matches.length > 1) block.push(`<div style="font-weight:600;margin-top:${i === 0 ? '0' : '0.75rem'};opacity:0.7;font-size:0.75rem;">MATCH ${i + 1}</div>`);
-      if (m.displayName) block.push(`<div><strong>Name:</strong> ${m.displayName}</div>`);
-      if (m.formattedAddress) block.push(`<div><strong>Address:</strong> ${m.formattedAddress}</div>`);
-      if (m.nationalPhoneNumber) block.push(`<div><strong>Phone:</strong> ${m.nationalPhoneNumber}</div>`);
-      if (m.websiteUri) block.push(`<div><strong>Website:</strong> <a href="${m.websiteUri}" target="_blank" rel="noopener">${m.websiteUri}</a></div>`);
-      if (m.googleMapsUri) block.push(`<div><strong>Maps:</strong> <a href="${m.googleMapsUri}" target="_blank" rel="noopener">Open in Google Maps</a></div>`);
+    const blocks = matches.map((m, i) => {
+      const lines = [];
+      if (matches.length > 1) lines.push(`<div style="font-weight:600;margin-top:${i === 0 ? '0' : '0.75rem'};opacity:0.7;font-size:0.75rem;">MATCH ${i + 1}</div>`);
+      if (m.displayName) lines.push(`<div><strong>Name:</strong> ${m.displayName}</div>`);
+      if (m.formattedAddress) lines.push(`<div><strong>Address:</strong> ${m.formattedAddress}</div>`);
+      if (m.nationalPhoneNumber) lines.push(`<div><strong>Phone:</strong> ${m.nationalPhoneNumber}</div>`);
+      if (m.websiteUri) lines.push(`<div><strong>Website:</strong> <a href="${m.websiteUri}" target="_blank" rel="noopener">${m.websiteUri}</a></div>`);
+      if (m.googleMapsUri) lines.push(`<div><strong>Maps:</strong> <a href="${m.googleMapsUri}" target="_blank" rel="noopener">Open in Google Maps</a></div>`);
       if (autoApplied && i === 0) {
-        // Match already applied at the top of this function — show a muted indicator instead of the action button.
-        block.push(`<div style="margin-top:0.5rem;padding:0.35rem 0.7rem;display:inline-block;background:#e8e8eb;color:#666;border-radius:4px;font-family:inherit;font-size:0.75rem;font-weight:600;letter-spacing:0.02em;">Match auto-applied</div>`);
+        lines.push(`<div style="margin-top:0.4rem;padding:0.25rem 0.5rem;display:inline-block;background:#e8e8eb;color:#666;border-radius:4px;font-family:inherit;font-size:0.7rem;font-weight:600;letter-spacing:0.02em;">Match auto-applied</div>`);
       } else {
-        block.push(`<div style="margin-top:0.5rem;"><button type="button" onclick='applyPlacesMatch(${JSON.stringify(m).replace(/'/g, "&#39;")})' style="background:#2a9d4a;color:white;border:none;padding:0.4rem 0.9rem;border-radius:4px;font-family:inherit;font-size:0.8rem;font-weight:600;cursor:pointer;letter-spacing:0.02em;">Use this match</button></div>`);
+        lines.push(`<div style="margin-top:0.4rem;"><button type="button" onclick='applyPlacesMatch(${JSON.stringify(m).replace(/'/g, "&#39;")})' style="background:#15803d;color:white;border:none;padding:0.4rem 0.9rem;border-radius:6px;font-family:inherit;font-size:0.8rem;font-weight:600;cursor:pointer;letter-spacing:0.02em;">Use this match</button></div>`);
       }
-      lines.push(block.join(''));
-    });
+      return lines.join('');
+    }).join('');
+    body = `<details style="margin-top:0.4rem;"><summary style="cursor:pointer;font-size:0.7rem;color:var(--muted);letter-spacing:0.04em;text-transform:uppercase;font-weight:600;outline:none;">Show match details</summary><div style="margin-top:0.5rem;line-height:1.5;">${blocks}</div></details>`;
   }
 
-  panel.innerHTML = `<div style="padding:0.75rem;background:#f5f5f7;border-radius:4px;font-size:0.85rem;line-height:1.5;">${lines.join('')}</div>`;
+  panel.innerHTML = `<div style="padding:0.5rem 0.75rem;background:#f5f5f7;border-radius:6px;font-size:0.85rem;">${strip}${body}</div>`;
 }
 
 // Restore the address-row buttons that applyPlacesMatch hides on a successful match.
@@ -2352,15 +2363,16 @@ function _buildDpMeta(parts) {
 }
 
 function _attachCardExtras(card, companyName, companyNum) {
-  // Officers button — slot in before the existing Dismiss button, using .sbtn styling
-  var dbtn = card.querySelector('.dbtn');
-  if (dbtn && companyNum) {
+  // Officers button — appended to the existing card button row (Copy/Search), using .sbtn-style amber.
+  // (Was originally inserted before a Dismiss button; Dismiss now lives in the detail panel.)
+  var sbtn = card.querySelector('.sbtn');
+  if (sbtn && companyNum) {
     var ob = document.createElement('button');
     ob.className = 'obtn';
     ob.type = 'button';
     ob.style.cssText = 'background:rgba(232,160,32,0.2);border:none;border-radius:4px;padding:0.25rem 0.5rem;color:#e8a020;font-size:0.62rem;cursor:pointer;white-space:nowrap;';
     ob.textContent = 'Officers';
-    dbtn.parentNode.insertBefore(ob, dbtn);
+    sbtn.parentNode.appendChild(ob);
 
     var panel = document.createElement('div');
     panel.className = 'pc-officers-panel';
@@ -2623,6 +2635,7 @@ async function _fetchBatch(el, isFirst) {
 
         var card = document.createElement('div');
         card.className = 'prospect-card';
+        if (num) card.setAttribute('data-company-number', num);
         if (isDismissed(num)) card.classList.add('dismissed');
         var cardIsSaved = isSavedLocally(num, name);
         if (cardIsSaved) card.classList.add('saved');
@@ -2634,7 +2647,6 @@ async function _fetchBatch(el, isFirst) {
             '<div style="display:flex;gap:0.3rem;flex-shrink:0;">' +
               '<button class="cbtn" style="background:rgba(255,255,255,0.1);border:none;border-radius:4px;padding:0.25rem 0.5rem;color:rgba(255,255,255,0.7);font-size:0.62rem;cursor:pointer;white-space:nowrap;">Copy</button>' +
               '<button class="sbtn" style="background:rgba(232,160,32,0.2);border:none;border-radius:4px;padding:0.25rem 0.5rem;color:#e8a020;font-size:0.62rem;cursor:pointer;white-space:nowrap;">Search</button>' +
-              '<button class="dbtn" style="background:rgba(150,150,150,0.18);border:none;border-radius:4px;padding:0.25rem 0.5rem;color:rgba(255,255,255,0.55);font-size:0.62rem;cursor:pointer;white-space:nowrap;">Dismiss</button>' +
             '</div>' +
           '</div>' +
           '<div class="pc-meta"></div><div class="pc-meta"></div>' +
@@ -2647,13 +2659,6 @@ async function _fetchBatch(el, isFirst) {
         var companyNum = num;
         card.querySelector('.cbtn').addEventListener('click', function(e){ e.stopPropagation(); copyName(companyName); });
         card.querySelector('.sbtn').addEventListener('click', function(e){ e.stopPropagation(); searchOnline(companyName); });
-        card.querySelector('.dbtn').addEventListener('click', function(e){
-          e.stopPropagation();
-          var nowDismissed = toggleDismissed(companyNum);
-          card.classList.toggle('dismissed', nowDismissed);
-          this.textContent = nowDismissed ? 'Restore' : 'Dismiss';
-        });
-        if (isDismissed(num)) card.querySelector('.dbtn').textContent = 'Restore';
         _attachCardExtras(card, companyName, companyNum);
         var norm = {
           title: name, company_number: num, company_type: c.company_type || '',
@@ -2794,6 +2799,7 @@ async function _fetchBatch(el, isFirst) {
 
       var card = document.createElement('div');
       card.className = 'prospect-card';
+      if (num) card.setAttribute('data-company-number', num);
       if (isDismissed(num)) card.classList.add('dismissed');
       var cardIsSaved = isSavedLocally(num, name);
       if (cardIsSaved) card.classList.add('saved');
@@ -2807,7 +2813,6 @@ async function _fetchBatch(el, isFirst) {
           '<div style="display:flex;gap:0.3rem;flex-shrink:0;">' +
             '<button class="cbtn" style="background:rgba(255,255,255,0.1);border:none;border-radius:4px;padding:0.25rem 0.5rem;color:rgba(255,255,255,0.7);font-size:0.62rem;cursor:pointer;white-space:nowrap;">Copy</button>' +
             '<button class="sbtn" style="background:rgba(232,160,32,0.2);border:none;border-radius:4px;padding:0.25rem 0.5rem;color:#e8a020;font-size:0.62rem;cursor:pointer;white-space:nowrap;">Search</button>' +
-            '<button class="dbtn" style="background:rgba(150,150,150,0.18);border:none;border-radius:4px;padding:0.25rem 0.5rem;color:rgba(255,255,255,0.55);font-size:0.62rem;cursor:pointer;white-space:nowrap;">Dismiss</button>' +
           '</div>' +
         '</div>' +
         '<div class="pc-meta"></div>' +
@@ -2827,13 +2832,6 @@ async function _fetchBatch(el, isFirst) {
       card.querySelector('.sbtn').addEventListener('click', function(e) {
         e.stopPropagation(); searchOnline(companyName);
       });
-      card.querySelector('.dbtn').addEventListener('click', function(e) {
-        e.stopPropagation();
-        var nowDismissed = toggleDismissed(companyNum);
-        card.classList.toggle('dismissed', nowDismissed);
-        this.textContent = nowDismissed ? 'Restore' : 'Dismiss';
-      });
-      if (isDismissed(num)) card.querySelector('.dbtn').textContent = 'Restore';
       _attachCardExtras(card, companyName, companyNum);
 
       var norm = {
@@ -3485,6 +3483,20 @@ function clearDetail() {
   _hideChAddressSwap();
   _restoreDefaultAddrButtons();
   currentProspect = null;
+}
+
+// Dismiss = clearDetail + persist the dismissal in localStorage + remove the matching
+// card from the left search results list. Replaces the per-card Dismiss button.
+function dismissCurrent() {
+  var num = currentProspect && currentProspect.number;
+  if (num) {
+    // Persist (the existing dismissed-prospects list is consulted on re-render too)
+    if (!isDismissed(num)) toggleDismissed(num);
+    // Remove the matching card from the DOM immediately
+    var card = document.querySelector('.prospect-card[data-company-number="' + String(num).replace(/"/g, '\\"') + '"]');
+    if (card && card.parentNode) card.parentNode.removeChild(card);
+  }
+  clearDetail();
 }
 
 function generateFromDetail() {
