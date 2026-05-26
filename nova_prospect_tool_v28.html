@@ -550,7 +550,7 @@ body { font-family: 'Georgia', serif; background: #e8eaf0; color: var(--text); m
       </div>
     </div>
     <div class="addr-buttons">
-      <button class="addr-btn addr-btn-copy" onclick="copyAddress()">
+      <button class="addr-btn addr-btn-copy" id="dp-copy-addr-btn" onclick="copyAddress()">
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
         Copy Address
       </button>
@@ -562,7 +562,7 @@ body { font-family: 'Georgia', serif; background: #e8eaf0; color: var(--text); m
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 010 20M12 2a15.3 15.3 0 000 20"/></svg>
         Google Earth
       </button>
-      <button class="addr-btn addr-btn-linkedin" onclick="openLinkedIn()">
+      <button class="addr-btn addr-btn-linkedin" id="dp-linkedin-btn" onclick="openLinkedIn()">
         <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M19 3a2 2 0 012 2v14a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h14m-.5 15.5v-5.3a3.26 3.26 0 00-3.26-3.26c-.85 0-1.84.52-2.32 1.3v-1.11h-2.79v8.37h2.79v-4.93c0-.77.62-1.4 1.39-1.4a1.4 1.4 0 011.4 1.4v4.93h2.79M6.88 8.56a1.68 1.68 0 001.68-1.68c0-.93-.75-1.69-1.68-1.69a1.69 1.69 0 00-1.69 1.69c0 .93.76 1.68 1.69 1.68m1.39 9.94v-8.37H5.5v8.37h2.77z"/></svg>
         LinkedIn
       </button>
@@ -612,7 +612,6 @@ body { font-family: 'Georgia', serif; background: #e8eaf0; color: var(--text); m
       <button id="dp-places-btn" class="dp-btn" style="background:#4285f4;color:white;" onclick="runPlacesLookup()">Search Company</button>
       <div id="dp-places-panel" style="display:none;grid-column:1/-1;margin-top:0.5rem;"></div>
       <button class="dp-btn dp-btn-save" onclick="saveCurrentProspect()">Save Prospect</button>
-      <button class="dp-btn" style="background:#6c3fa0;color:white;padding:0.55rem 1rem;border:none;border-radius:5px;font-size:0.72rem;font-family:sans-serif;font-weight:700;letter-spacing:0.5px;text-transform:uppercase;cursor:pointer;" onclick="openVisualiser()">&#x2600; Solar Visualiser</button>
       <button class="dp-btn dp-btn-skip" onclick="clearDetail()">Clear</button>
     </div>
 
@@ -835,6 +834,15 @@ function renderPlacesResult(result, panel) {
   panel.innerHTML = `<div style="padding:0.75rem;background:#f5f5f7;border-radius:4px;font-size:0.85rem;line-height:1.5;">${lines.join('')}</div>`;
 }
 
+// Restore the address-row buttons that applyPlacesMatch hides on a successful match.
+// Called whenever a new prospect is loaded so a previous prospect's hidden state doesn't carry over.
+function _restoreDefaultAddrButtons() {
+  const copyBtn = document.getElementById('dp-copy-addr-btn');
+  if (copyBtn) copyBtn.style.display = '';
+  const liBtn = document.getElementById('dp-linkedin-btn');
+  if (liBtn) liBtn.style.display = '';
+}
+
 function applyPlacesMatch(match) {
   if (!match) return;
   const addrEl = document.getElementById('dp-address');
@@ -869,6 +877,17 @@ function applyPlacesMatch(match) {
     el.style.background = '#e6f4ea';
     setTimeout(() => { el.style.background = orig; }, 1200);
   });
+
+  // Hide buttons now made redundant by the Places auto-fill. Conditional on the
+  // relevant field being populated by this match, so partial matches don't over-hide.
+  if (match.formattedAddress) {
+    const copyBtn = document.getElementById('dp-copy-addr-btn');
+    if (copyBtn) copyBtn.style.display = 'none';
+  }
+  if (match.websiteUri) {
+    const liBtn = document.getElementById('dp-linkedin-btn');
+    if (liBtn) liBtn.style.display = 'none';
+  }
 }
 
 async function findSitesUnderCompany(companyRecord, address) {
@@ -2889,6 +2908,10 @@ async function selectProspect(company, cardEl, sectorKey) {
 
   document.getElementById('main-area').scrollTo(0, 0);
 
+  // Reset address-row buttons to default visibility — applyPlacesMatch may hide
+  // them if the auto-fire below succeeds, but we don't want previous prospect state to carry over.
+  _restoreDefaultAddrButtons();
+
   // Auto-fire Google Places lookup in parallel with the CH /company enrichment below.
   // Reuses the same handler as the manual Search Company button so all UI state stays consistent.
   // Guard avoids the alert path inside runPlacesLookup when name is missing.
@@ -3371,6 +3394,9 @@ function pickLookupResult(idx) {
   _resetDetailLookupPanel();
   _resetDetailOfficersPanel();
 
+  // Reset address-row buttons to default visibility (applyPlacesMatch may re-hide below).
+  _restoreDefaultAddrButtons();
+
   // Auto-fire Google Places lookup in parallel with the /company enrichment below.
   // Reuses the same handler as the manual Search Company button so all UI state stays consistent.
   // Guard avoids the alert path inside runPlacesLookup when name is missing.
@@ -3457,6 +3483,7 @@ function clearDetail() {
   _resetDetailOfficersPanel();
   _resetDetailLookupPanel();
   _hideChAddressSwap();
+  _restoreDefaultAddrButtons();
   currentProspect = null;
 }
 
@@ -3586,6 +3613,7 @@ function generateFromManual() {
   if (lkBtnM) lkBtnM.style.display = '';
   _resetDetailLookupPanel();
   _hideChAddressSwap();
+  _restoreDefaultAddrButtons();
 
   // Scroll panel into view.
   const main = document.getElementById('main-area');
