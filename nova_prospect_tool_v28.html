@@ -548,6 +548,14 @@ input, button, select, textarea { font-family: inherit; }
           <option value="quarrying_mining">Quarrying &amp; Mining</option>
         </select>
       </div>
+      <div class="dp-field">
+        <label>Track</label>
+        <select id="dp-track">
+          <option value="Standard">Standard</option>
+          <option value="Multi-Site">Multi-Site</option>
+          <option value="Managing-Agent">Managing-Agent</option>
+        </select>
+      </div>
     </div>
     <div class="dp-row" style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-top:0.75rem;">
       <div>
@@ -860,6 +868,27 @@ function _restoreDefaultAddrButtons() {
   if (liBtn) liBtn.style.display = '';
 }
 
+// Set dp-track to the most sensible default for the current prospect:
+// - If currentProspect.track is already set (e.g. loaded from a saved entry), use it
+// - Else if activeSitesCount > 1, pick Multi-Site (signals a portfolio prospect)
+// - Else fall back to Standard
+// User can manually override to Managing-Agent or any other option after the default.
+function _setTrackDefault() {
+  const sel = document.getElementById('dp-track');
+  if (!sel) return;
+  let track = '';
+  if (currentProspect) {
+    if (currentProspect.track) {
+      track = currentProspect.track;
+    } else if (Number(currentProspect.activeSitesCount) > 1) {
+      track = 'Multi-Site';
+    } else {
+      track = 'Standard';
+    }
+  }
+  if (track) sel.value = track;
+}
+
 function applyPlacesMatch(match) {
   if (!match) return;
   const addrEl = document.getElementById('dp-address');
@@ -988,6 +1017,7 @@ async function saveProspectToAirtable(data, stage) {
         'TotalRoofArea': roofArea,
         'Website': data.website || '',
         'RegisteredOffice': data.registeredOffice || '',
+        'Track': data.track || 'Standard',
         'Notes': `Ref: ${data.refNum || ''}. Added via Nova Prospect Tool.`
       }})
     });
@@ -1024,7 +1054,8 @@ async function saveProspectToAirtable(data, stage) {
           'Active Sites Count': oldActive + 1,
           'TotalRoofArea': oldRoof + roofArea,
           ...(data.website ? { 'Website': data.website } : {}),
-          ...(data.registeredOffice ? { 'RegisteredOffice': data.registeredOffice } : {})
+          ...(data.registeredOffice ? { 'RegisteredOffice': data.registeredOffice } : {}),
+          ...(data.track ? { 'Track': data.track } : {})
         }})
       });
     } catch(_) {}
@@ -2894,6 +2925,8 @@ async function selectProspect(company, cardEl, sectorKey) {
     const sel = document.getElementById('dp-sector');
     if (sel) sel.value = sectorKey;
   }
+  // Set Track default — Standard unless currentProspect carries activeSitesCount/track from upstream.
+  _setTrackDefault();
 
   // Build badges
   const badgesEl = document.getElementById('dp-badges');
@@ -3400,6 +3433,7 @@ function pickLookupResult(idx) {
 
   // Reset address-row buttons to default visibility (applyPlacesMatch may re-hide below).
   _restoreDefaultAddrButtons();
+  _setTrackDefault();
 
   // Auto-fire Google Places lookup in parallel with the /company enrichment below.
   // Reuses the same handler as the manual Search Company button so all UI state stays consistent.
@@ -3488,6 +3522,9 @@ function clearDetail() {
   _resetDetailLookupPanel();
   _hideChAddressSwap();
   _restoreDefaultAddrButtons();
+  // Reset Track to first option (Standard) so the next prospect load starts from a known baseline.
+  const trackSel = document.getElementById('dp-track');
+  if (trackSel) trackSel.value = 'Standard';
   currentProspect = null;
 }
 
@@ -3531,6 +3568,7 @@ async function saveCurrentProspect() {
 
   const phoneEl = document.getElementById('dp-phone');
   const websiteEl = document.getElementById('dp-website');
+  const trackEl = document.getElementById('dp-track');
   const entry = {
     name: currentProspect.name,
     address,
@@ -3544,6 +3582,7 @@ async function saveCurrentProspect() {
     phone: phoneEl ? phoneEl.value.trim() : '',
     website: websiteEl ? websiteEl.value.trim() : '',
     registeredOffice: currentProspect && currentProspect.registeredOffice ? currentProspect.registeredOffice : '',
+    track: trackEl ? trackEl.value : '',
     savedAt: new Date().toISOString()
   };
 
@@ -3632,6 +3671,7 @@ function generateFromManual() {
   _resetDetailLookupPanel();
   _hideChAddressSwap();
   _restoreDefaultAddrButtons();
+  _setTrackDefault();
 
   // Scroll panel into view.
   const main = document.getElementById('main-area');
