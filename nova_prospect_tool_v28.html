@@ -2889,6 +2889,13 @@ async function selectProspect(company, cardEl, sectorKey) {
 
   document.getElementById('main-area').scrollTo(0, 0);
 
+  // Auto-fire Google Places lookup in parallel with the CH /company enrichment below.
+  // Reuses the same handler as the manual Search Company button so all UI state stays consistent.
+  // Guard avoids the alert path inside runPlacesLookup when name is missing.
+  if (currentProspect && currentProspect.name) {
+    runPlacesLookup();
+  }
+
   // Fetch full company profile for address + account type
   try {
     const resp = await fetch(`${CH_PROXY}/company/${company.company_number}`);
@@ -3363,6 +3370,13 @@ function pickLookupResult(idx) {
   // Close + clear the lookup panel; reset any officers panel state.
   _resetDetailLookupPanel();
   _resetDetailOfficersPanel();
+
+  // Auto-fire Google Places lookup in parallel with the /company enrichment below.
+  // Reuses the same handler as the manual Search Company button so all UI state stays consistent.
+  // Guard avoids the alert path inside runPlacesLookup when name is missing.
+  if (currentProspect && currentProspect.name) {
+    runPlacesLookup();
+  }
 
   // Async enrich via /company/{number} — canonical name, full-accounts badge, SIC codes, CH address.
   fetch(CH_PROXY + '/company/' + encodeURIComponent(item.company_number))
