@@ -4328,6 +4328,65 @@ function loadNovajob(input) {
 // runs immediately and then every 30s thereafter. Idempotent — safe if called twice.
 startPipelineCachePolling();
 
+// Wire Enter-key shortcuts across text inputs so the keyboard-driven flow doesn't
+// require reaching for the mouse. Existing handler on #dp-lookup-input (set up inside
+// toggleDetailLookup at panel-build time) is left intact — this function only adds
+// handlers to inputs that don't already have one.
+function _wireEnterKeyHandlers() {
+  function on(id, handler) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.addEventListener('keydown', function(e) {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        handler();
+      }
+    });
+  }
+  function focusOn(id) {
+    const el = document.getElementById(id);
+    if (el) el.focus();
+  }
+
+  // SEARCH tab — Name field fires Companies House search.
+  on('s-name', function() { searchCompanies(); });
+
+  // MANUAL tab — Company Name field moves focus to the next logical field (Address).
+  // The "Look up on CH if visible" branch from the spec never applies here because
+  // dp-lookup-btn lives in the detail panel, which isn't open from the manual tab.
+  on('m-company', function() { focusOn('m-address'); });
+
+  // Detail panel — Site Address chain → Phone → Website → Roof.
+  on('dp-address', function() { focusOn('dp-phone'); });
+  on('dp-phone',   function() { focusOn('dp-website'); });
+  on('dp-website', function() { focusOn('dp-roof'); });
+
+  // Roof Area: always move to Contact Name. Roof area is prospecting data — it feeds the
+  // cold-email algorithm — and is captured many touches before Generate Proposal ever runs.
+  // Generate Proposal stays a button-only action; no Enter handler triggers it.
+  on('dp-roof', function() { focusOn('dp-contact'); });
+
+  // Detail panel — Contact chain → Job Title → Email.
+  on('dp-contact',   function() { focusOn('dp-job-title'); });
+  on('dp-job-title', function() { focusOn('dp-email'); });
+
+  // Email: Find Email if Email is empty AND Contact is populated;
+  // Save Prospect if Email is populated; no-op if both empty.
+  on('dp-email', function() {
+    const emailVal   = (document.getElementById('dp-email')   || {}).value;
+    const contactVal = (document.getElementById('dp-contact') || {}).value;
+    const haveEmail   = !!(emailVal   && emailVal.trim());
+    const haveContact = !!(contactVal && contactVal.trim());
+    if (haveEmail) {
+      saveCurrentProspect();
+    } else if (haveContact) {
+      runFindEmailFromContactField();
+    }
+  });
+}
+
+_wireEnterKeyHandlers();
+
 </script>
 <script>
 // ════════════════════════════════════════════════
