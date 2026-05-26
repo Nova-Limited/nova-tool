@@ -70,6 +70,25 @@ input, button, select, textarea { font-family: inherit; }
 .tag-full { background: rgba(42,127,212,0.25); color: #7ab8f5; }
 .tag-target { background: rgba(232,160,32,0.25); color: #e8a020; }
 .tag-excluded { background: rgba(150,150,150,0.2); color: rgba(255,255,255,0.3); }
+/* Pipeline-status row + IN PIPELINE badges (multi-user pipeline visibility) */
+.pipeline-status-bar { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; padding: 0.45rem 0.6rem; margin: 0.6rem 0 0.4rem; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); border-radius: 6px; font-size: 0.68rem; color: rgba(255,255,255,0.55); }
+.pipeline-status-bar .pipeline-label { display: flex; align-items: center; gap: 0.4rem; letter-spacing: 0.04em; text-transform: uppercase; font-weight: 600; }
+.pipeline-status-bar .pipeline-count { color: rgba(255,255,255,0.9); font-weight: 700; }
+.pipeline-refresh-btn { background: #374151; color: #fff; border: none; border-radius: 6px; width: 32px; height: 32px; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; transition: background 0.15s; }
+.pipeline-refresh-btn:hover { background: #4b5563; }
+.pipeline-refresh-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.pipeline-refresh-btn.refreshing svg { animation: pipeline-spin 0.8s linear infinite; }
+@keyframes pipeline-spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+.pipeline-toast { position: fixed; bottom: 1.5rem; left: 50%; transform: translateX(-50%); background: rgba(20,20,25,0.92); color: #fff; padding: 0.5rem 1rem; border-radius: 6px; font-size: 0.75rem; font-weight: 600; letter-spacing: 0.04em; opacity: 0; pointer-events: none; transition: opacity 0.2s; z-index: 10000; }
+.pipeline-toast.show { opacity: 1; }
+.pc-pipeline-row { margin-top: 0.25rem; display: flex; gap: 0.3rem; flex-wrap: wrap; }
+.tag-pipeline { padding: 0.25rem 0.5rem; font-size: 0.7rem; border-radius: 6px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; }
+.tag-pipeline-standard { background: #cfe2ff; color: #084298; }
+.tag-pipeline-multi-site { background: #d4edda; color: #0f5132; }
+.tag-pipeline-managing-agent { background: #e7d6f5; color: #5a2d8b; }
+.tag-pipeline-unknown { background: rgba(255,255,255,0.18); color: rgba(255,255,255,0.85); }
+.prospect-card.in-pipeline { opacity: 0.55; }
+.prospect-card.in-pipeline:hover { opacity: 0.78; }
 .loading-msg { color: rgba(255,255,255,0.35); font-size: 0.78rem; text-align: center; padding: 1.5rem 0; }
 .error-msg { color: #f08080; font-size: 0.75rem; padding: 0.65rem; background: rgba(192,57,43,0.1); border-radius: 5px; margin-top: 0.4rem; }
 .saved-item { background: rgba(255,255,255,0.05); border-radius: 5px; padding: 0.6rem 0.75rem; margin-bottom: 0.35rem; display: flex; justify-content: space-between; align-items: center; cursor: pointer; }
@@ -450,7 +469,14 @@ input, button, select, textarea { font-family: inherit; }
       <input type="text" id="s-name" placeholder="Enter company name to search directly" />
     </div>
     <button class="btn btn-primary" onclick="searchCompanies()">Search Companies House</button>
+    <div class="pipeline-status-bar">
+      <span class="pipeline-label">Pipeline: <span class="pipeline-count" id="pipeline-count">—</span> records</span>
+      <button type="button" id="pipeline-refresh-btn" class="pipeline-refresh-btn" title="Refresh pipeline cache" onclick="manualRefreshPipeline()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M21 3v5h-5"/><path d="M3 21v-5h5"/></svg>
+      </button>
+    </div>
     <div id="search-results"></div>
+    <div id="pipeline-toast" class="pipeline-toast"></div>
     <div id="load-more-wrap" style="display:none;text-align:center;margin-top:0.75rem;">
       <button onclick="loadMoreResults()" id="load-more-btn"
         style="background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);color:rgba(255,255,255,0.8);padding:0.6rem 2rem;font-size:0.75rem;cursor:pointer;border-radius:4px;width:100%;letter-spacing:0.05em;">
@@ -887,6 +913,153 @@ function _setTrackDefault() {
     }
   }
   if (track) sel.value = track;
+}
+
+// ============================================================
+// Multi-user pipeline cache: polls Airtable Companies every 30s,
+// drives the IN PIPELINE badge on search cards + the SAVED tab.
+// ============================================================
+const savedPipelineCache = new Map();           // keyed by CH number (string)
+const savedPipelineCacheByRecordId = new Map(); // keyed by Airtable recordId — includes MANUAL entries with empty CH number
+let savedPipelineCacheLastUpdated = 0;
+let _pipelinePollStarted = false;
+const PIPELINE_POLL_MS = 30000;
+
+function _extractRefNumFromNotes(notes) {
+  if (!notes) return '';
+  const m = String(notes).match(/Ref:\s*(NOV-\d+)/i);
+  return m ? m[1] : '';
+}
+
+function _pipelineCacheEntryFromRecord(rec) {
+  const f = (rec && rec.fields) || {};
+  return {
+    recordId: rec.id || '',
+    number: String(f['CompanyNumber'] || '').trim(),
+    name: f['Company Name'] || '',
+    track: f['Track'] || '',
+    stage: f['Stage'] || '',
+    sector: f['Sector'] || '',
+    roofArea: Number(f['TotalRoofArea']) || 0,
+    refNum: _extractRefNumFromNotes(f['Notes'] || ''),
+    contact: f['Contact Name'] || '',
+    jobTitle: f['Contact Title'] || '',
+    email: f['Contact Email'] || '',
+    website: f['Website'] || '',
+    registeredOffice: f['RegisteredOffice'] || '',
+    createdTime: rec.createdTime || '',
+    lastModifiedTime: f['Last Modified'] || rec.createdTime || '',
+    totalSitesCount: Number(f['Total Sites Count']) || 0,
+    activeSitesCount: Number(f['Active Sites Count']) || 0
+  };
+}
+
+async function fetchSavedPipelineCache() {
+  const allRecords = [];
+  let offset = '';
+  try {
+    while (true) {
+      const params = new URLSearchParams();
+      params.append('pageSize', '100');
+      if (offset) params.append('offset', offset);
+      const url = AT_COMPANIES_URL + '?' + params.toString();
+      const resp = await fetch(url);
+      if (!resp.ok) {
+        console.error('Pipeline cache fetch failed:', resp.status);
+        return false;
+      }
+      const data = await resp.json();
+      const records = data.records || [];
+      allRecords.push(...records);
+      if (!data.offset) break;
+      offset = data.offset;
+    }
+  } catch (e) {
+    console.error('Pipeline cache fetch error:', e);
+    return false;
+  }
+
+  // Rebuild from scratch so dropped records disappear from the cache.
+  savedPipelineCache.clear();
+  savedPipelineCacheByRecordId.clear();
+  for (const rec of allRecords) {
+    const entry = _pipelineCacheEntryFromRecord(rec);
+    if (entry.number) savedPipelineCache.set(entry.number, entry);
+    if (entry.recordId) savedPipelineCacheByRecordId.set(entry.recordId, entry);
+  }
+  savedPipelineCacheLastUpdated = Date.now();
+  console.log('Pipeline cache refreshed:', savedPipelineCacheByRecordId.size, 'records');
+  _updatePipelineStatusBar();
+  return true;
+}
+
+function _updatePipelineStatusBar() {
+  const countEl = document.getElementById('pipeline-count');
+  if (countEl) countEl.textContent = savedPipelineCacheByRecordId.size;
+}
+
+function startPipelineCachePolling() {
+  if (_pipelinePollStarted) return;
+  _pipelinePollStarted = true;
+  fetchSavedPipelineCache();
+  setInterval(fetchSavedPipelineCache, PIPELINE_POLL_MS);
+}
+
+function _showPipelineToast(msg) {
+  const t = document.getElementById('pipeline-toast');
+  if (!t) return;
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(_showPipelineToast._timer);
+  _showPipelineToast._timer = setTimeout(function() { t.classList.remove('show'); }, 1500);
+}
+
+async function manualRefreshPipeline() {
+  const btn = document.getElementById('pipeline-refresh-btn');
+  if (btn) { btn.disabled = true; btn.classList.add('refreshing'); }
+  const ok = await fetchSavedPipelineCache();
+  // Re-apply IN PIPELINE badges to whatever search cards are currently rendered.
+  _refreshInPipelineFlags();
+  // Re-render SAVED tab if it's the active tab.
+  const savedTab = document.getElementById('tab-saved');
+  if (savedTab && savedTab.classList.contains('active')) renderSaved();
+  if (btn) { btn.disabled = false; btn.classList.remove('refreshing'); }
+  _showPipelineToast(ok ? 'Refreshed' : 'Refresh failed');
+}
+
+function _applyInPipelineFlag(card, num) {
+  if (!card || !num) return;
+  // Remove any previous flag first so a re-render with a now-removed cache entry clears cleanly.
+  card.classList.remove('in-pipeline');
+  const existingRow = card.querySelector('.pc-pipeline-row');
+  if (existingRow && existingRow.parentNode) existingRow.parentNode.removeChild(existingRow);
+
+  const entry = savedPipelineCache.get(String(num));
+  if (!entry) return;
+  card.classList.add('in-pipeline');
+  const trackLabel = entry.track || 'Unknown';
+  const trackClass = 'tag-pipeline-' + (entry.track || 'unknown').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/-$/, '') || 'tag-pipeline-unknown';
+  const row = document.createElement('div');
+  row.className = 'pc-pipeline-row';
+  const pill = document.createElement('span');
+  pill.className = 'tag tag-pipeline ' + trackClass;
+  pill.textContent = 'IN PIPELINE · ' + trackLabel;
+  row.appendChild(pill);
+  // Insert right after the top button row (which contains .pc-name).
+  const nameEl = card.querySelector('.pc-name');
+  const topRow = nameEl ? nameEl.parentNode : null;
+  if (topRow && topRow.parentNode) {
+    topRow.parentNode.insertBefore(row, topRow.nextSibling);
+  } else {
+    card.appendChild(row);
+  }
+}
+
+function _refreshInPipelineFlags() {
+  document.querySelectorAll('.prospect-card[data-company-number]').forEach(function(card) {
+    const num = card.getAttribute('data-company-number');
+    _applyInPipelineFlag(card, num);
+  });
 }
 
 function applyPlacesMatch(match) {
@@ -2697,6 +2870,7 @@ async function _fetchBatch(el, isFirst) {
         card.querySelector('.cbtn').addEventListener('click', function(e){ e.stopPropagation(); copyName(companyName); });
         card.querySelector('.sbtn').addEventListener('click', function(e){ e.stopPropagation(); searchOnline(companyName); });
         _attachCardExtras(card, companyName, companyNum);
+        _applyInPipelineFlag(card, companyNum);
         var norm = {
           title: name, company_number: num, company_type: c.company_type || '',
           company_status: 'active', date_of_creation: c.date_of_creation || '',
@@ -2870,6 +3044,7 @@ async function _fetchBatch(el, isFirst) {
         e.stopPropagation(); searchOnline(companyName);
       });
       _attachCardExtras(card, companyName, companyNum);
+      _applyInPipelineFlag(card, companyNum);
 
       var norm = {
         title: name, company_number: num, company_type: c.company_type || '',
@@ -3875,16 +4050,145 @@ async function saveFromProposal(data) {
   }
 }
 
+// SAVED tab renders from the multi-user pipeline cache (savedPipelineCacheByRecordId).
+// Sorted by lastModifiedTime descending (createdTime fallback). Click opens the detail panel
+// populated from cache data; delete is destructive (removes the Airtable record for all users).
 function renderSaved() {
   const el = document.getElementById('saved-list');
-  if (!savedProspects.length) { el.innerHTML = '<div class="loading-msg">No saved prospects yet</div>'; return; }
-  el.innerHTML = savedProspects.map((p,i) => `
-    <div class="saved-item" onclick="loadSaved(${i})">
-      <div><div class="si-name">${p.name}</div><div class="si-meta">${p.roofArea||0}m² | ${p.sector} | ${p.refNum||''}</div></div>
-      <button class="del-btn" onclick="event.stopPropagation();deleteSaved(${i})">&#10005;</button>
-    </div>`).join('');
+  if (!el) return;
+  const entries = Array.from(savedPipelineCacheByRecordId.values());
+  if (!entries.length) {
+    el.innerHTML = '<div class="loading-msg">No prospects in the pipeline yet.</div>';
+    return;
+  }
+  // Sort by lastModifiedTime (or createdTime fallback) descending.
+  entries.sort(function(a, b) {
+    const aTime = a.lastModifiedTime || a.createdTime || '';
+    const bTime = b.lastModifiedTime || b.createdTime || '';
+    if (aTime < bTime) return 1;
+    if (aTime > bTime) return -1;
+    return 0;
+  });
+  // Build the list. Use recordId as the identity for click + delete handlers.
+  el.innerHTML = entries.map(function(p) {
+    const safeRecId = String(p.recordId || '').replace(/'/g, "\\'");
+    const safeName = String(p.name || '').replace(/'/g, "\\'").replace(/</g, '&lt;');
+    const metaBits = [];
+    metaBits.push((p.roofArea || 0) + 'm²');
+    if (p.sector) metaBits.push(p.sector);
+    if (p.track) metaBits.push(p.track);
+    if (p.refNum) metaBits.push(p.refNum);
+    return '<div class="saved-item" onclick="loadSavedFromCache(\'' + safeRecId + '\')">' +
+           '<div><div class="si-name">' + (p.name || '(Unnamed)') + '</div>' +
+           '<div class="si-meta">' + metaBits.join(' | ') + '</div></div>' +
+           '<button class="del-btn" onclick="event.stopPropagation();deleteSavedFromCache(\'' + safeRecId + '\', \'' + safeName + '\')">&#10005;</button>' +
+           '</div>';
+  }).join('');
 }
 
+// Cache-backed click handler. Opens the detail panel populated with the cached fields,
+// so the user can re-edit and re-save. currentProspect is seeded so all the existing
+// downstream flows (Officers, LinkedIn, Save Prospect, etc.) work as if the prospect
+// had been loaded via SEARCH or MANUAL.
+function loadSavedFromCache(recordId) {
+  const p = savedPipelineCacheByRecordId.get(recordId);
+  if (!p) { alert('This entry is no longer in the pipeline cache. Refreshing…'); manualRefreshPipeline(); return; }
+
+  currentProspect = {
+    name: p.name || '',
+    address: p.registeredOffice || '',
+    number: p.number || '',
+    type: '',
+    status: 'active',
+    registeredOffice: p.registeredOffice || '',
+    track: p.track || '',
+    activeSitesCount: p.activeSitesCount || 0
+  };
+
+  document.getElementById('welcome-screen').style.display = 'none';
+  document.getElementById('proposal-output').style.display = 'none';
+  document.getElementById('detail-panel').style.display = 'block';
+
+  document.getElementById('dp-name').textContent = p.name || 'Name unavailable';
+  document.getElementById('dp-meta').textContent = _buildDpMeta({ number: p.number, type: '', date_of_creation: '' });
+
+  const da = document.getElementById('dp-address');
+  if (da) { da.value = p.registeredOffice || ''; da.style.color = ''; }
+  const dpRoof = document.getElementById('dp-roof');
+  if (dpRoof) dpRoof.value = p.roofArea || '';
+  const dpContact = document.getElementById('dp-contact');
+  if (dpContact) dpContact.value = p.contact || '';
+  const dpJobTitle = document.getElementById('dp-job-title');
+  if (dpJobTitle) dpJobTitle.value = p.jobTitle || '';
+  const dpEmail = document.getElementById('dp-email');
+  if (dpEmail) dpEmail.value = p.email || '';
+  const dpWebsite = document.getElementById('dp-website');
+  if (dpWebsite) dpWebsite.value = p.website || '';
+  const dpPhone = document.getElementById('dp-phone');
+  if (dpPhone) dpPhone.value = ''; // Phone is on Sites/Pipeline records, not Companies — left blank
+  const dpSector = document.getElementById('dp-sector');
+  if (dpSector) {
+    // Map the human-readable sector label back to a key, fallback to warehouse.
+    let key = 'warehouse';
+    for (const k in SECTOR_DATA) {
+      if (SECTOR_DATA[k] && SECTOR_DATA[k].label === p.sector) { key = k; break; }
+    }
+    dpSector.value = key;
+  }
+
+  // Track default reads currentProspect.track (just set) so this picks up the saved value.
+  _setTrackDefault();
+  // Badges row — show track + stage as informational pills (re-using the existing tag styling).
+  const badgesEl = document.getElementById('dp-badges');
+  if (badgesEl) {
+    const bits = ['<span class="tag tag-active">' + (p.stage || 'in pipeline') + '</span>'];
+    if (p.track) bits.push('<span class="tag tag-target">' + p.track + '</span>');
+    badgesEl.innerHTML = bits.join('');
+  }
+  // Reset transient panels and address-row state.
+  _resetDetailOfficersPanel();
+  _resetDetailLookupPanel();
+  _hideChAddressSwap();
+  _restoreDefaultAddrButtons();
+  // Officers / Look-up button visibility matches the SEARCH-found path when a CH number is present.
+  const ofBtn = document.getElementById('dp-officers-btn');
+  if (ofBtn) ofBtn.style.display = p.number ? '' : 'none';
+  const lkBtn = document.getElementById('dp-lookup-btn');
+  if (lkBtn) lkBtn.style.display = p.number ? 'none' : '';
+
+  const main = document.getElementById('main-area');
+  if (main && main.scrollTo) main.scrollTo(0, 0);
+}
+
+// Cache-backed delete: confirms, DELETEs the Airtable Companies record, then refreshes the cache.
+async function deleteSavedFromCache(recordId, name) {
+  if (!recordId) return;
+  if (!confirm('Delete "' + (name || 'this prospect') + '" from the pipeline permanently?\n\nThis affects all users and cannot be undone from the tool.')) return;
+  try {
+    const resp = await fetch(AT_COMPANIES_URL + '/' + recordId, { method: 'DELETE' });
+    if (!resp.ok) {
+      let txt = '';
+      try { txt = await resp.text(); } catch(_) {}
+      alert('Delete failed: HTTP ' + resp.status + (txt ? ' — ' + txt.slice(0, 120) : ''));
+      return;
+    }
+  } catch (e) {
+    alert('Delete failed: ' + ((e && e.message) || 'network error'));
+    return;
+  }
+  // Optimistic local removal so the SAVED list updates instantly.
+  const entry = savedPipelineCacheByRecordId.get(recordId);
+  savedPipelineCacheByRecordId.delete(recordId);
+  if (entry && entry.number) savedPipelineCache.delete(entry.number);
+  _updatePipelineStatusBar();
+  renderSaved();
+  _refreshInPipelineFlags();
+  // Belt-and-braces: kick off a real refresh in the background.
+  fetchSavedPipelineCache();
+}
+
+// Legacy localStorage-backed handlers retained for backwards compatibility with any
+// callers that still reference them by index. The HTML no longer uses these.
 function loadSaved(i) {
   document.getElementById('welcome-screen').style.display = 'none';
   document.getElementById('detail-panel').style.display = 'none';
@@ -4019,6 +4323,10 @@ function loadNovajob(input) {
   };
   reader.readAsText(file); input.value = '';
 }
+
+// Kick off pipeline-cache polling once the script has loaded. fetchSavedPipelineCache
+// runs immediately and then every 30s thereafter. Idempotent — safe if called twice.
+startPipelineCachePolling();
 
 </script>
 <script>
