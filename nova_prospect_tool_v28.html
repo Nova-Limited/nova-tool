@@ -801,8 +801,15 @@ function renderPlacesResult(result, panel) {
   const c = confidenceColors[result.confidence] || '#888';
   const matches = Array.isArray(result.matches) ? result.matches : [];
 
+  // Auto-apply on a low-confidence single match: populate fields immediately
+  // but keep the panel rendered so the user sees the source + the low-confidence signal.
+  const autoApplied = result.confidence === 'low' && matches.length === 1;
+  if (autoApplied) {
+    applyPlacesMatch(matches[0]);
+  }
+
   const lines = [];
-  lines.push(`<div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.75rem;"><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${c};"></span><strong style="text-transform:uppercase;font-size:0.75rem;letter-spacing:0.05em;">Confidence: ${result.confidence || 'unknown'}</strong>${result.cacheHit ? '<span style="font-size:0.7rem;opacity:0.6;">(cached)</span>' : ''}</div>`);
+  lines.push(`<div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.75rem;"><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${c};"></span><strong style="text-transform:uppercase;font-size:0.75rem;letter-spacing:0.05em;">Confidence: ${result.confidence || 'unknown'}</strong>${result.cacheHit ? '<span style="font-size:0.7rem;opacity:0.6;">(cached)</span>' : ''}${autoApplied ? '<span style="font-size:0.7rem;opacity:0.85;color:#2a9d4a;font-weight:600;">· auto-applied</span>' : ''}</div>`);
 
   if (matches.length === 0) {
     lines.push('<div style="opacity:0.7;">No matches returned from Google Places.</div>');
@@ -815,7 +822,12 @@ function renderPlacesResult(result, panel) {
       if (m.nationalPhoneNumber) block.push(`<div><strong>Phone:</strong> ${m.nationalPhoneNumber}</div>`);
       if (m.websiteUri) block.push(`<div><strong>Website:</strong> <a href="${m.websiteUri}" target="_blank" rel="noopener">${m.websiteUri}</a></div>`);
       if (m.googleMapsUri) block.push(`<div><strong>Maps:</strong> <a href="${m.googleMapsUri}" target="_blank" rel="noopener">Open in Google Maps</a></div>`);
-      block.push(`<div style="margin-top:0.5rem;"><button type="button" onclick='applyPlacesMatch(${JSON.stringify(m).replace(/'/g, "&#39;")})' style="background:#2a9d4a;color:white;border:none;padding:0.4rem 0.9rem;border-radius:4px;font-family:inherit;font-size:0.8rem;font-weight:600;cursor:pointer;letter-spacing:0.02em;">Use this match</button></div>`);
+      if (autoApplied && i === 0) {
+        // Match already applied at the top of this function — show a muted indicator instead of the action button.
+        block.push(`<div style="margin-top:0.5rem;padding:0.35rem 0.7rem;display:inline-block;background:#e8e8eb;color:#666;border-radius:4px;font-family:inherit;font-size:0.75rem;font-weight:600;letter-spacing:0.02em;">Match auto-applied</div>`);
+      } else {
+        block.push(`<div style="margin-top:0.5rem;"><button type="button" onclick='applyPlacesMatch(${JSON.stringify(m).replace(/'/g, "&#39;")})' style="background:#2a9d4a;color:white;border:none;padding:0.4rem 0.9rem;border-radius:4px;font-family:inherit;font-size:0.8rem;font-weight:600;cursor:pointer;letter-spacing:0.02em;">Use this match</button></div>`);
+      }
       lines.push(block.join(''));
     });
   }
