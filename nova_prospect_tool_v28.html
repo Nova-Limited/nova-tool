@@ -123,6 +123,19 @@ input, button, select, textarea { font-family: inherit; }
 .addr-btn-linkedin,
 .addr-btn-officers,
 .addr-btn-lookup { background: #374151; color: white; }
+/* Footprint button sits inside the dp-roof field, under the input. Same charcoal
+   palette as addr-btn so it reads as a sibling utility, just sized to fit below
+   the input rather than alongside other addr-btns. */
+.dp-footprint-btn { display: inline-flex; align-items: center; gap: 0.35rem; margin-top: 0.4rem; height: 1.9rem; padding: 0.3rem 0.75rem; background: #374151; color: white; border: none; border-radius: 5px; font-family: inherit; font-size: 0.68rem; font-weight: 700; letter-spacing: 0.04em; cursor: pointer; transition: opacity 0.15s; }
+.dp-footprint-btn:hover { opacity: 0.85; }
+.dp-footprint-btn:disabled { opacity: 0.55; cursor: wait; }
+.dp-footprint-status { margin-top: 0.35rem; font-size: 0.7rem; line-height: 1.4; padding: 0.3rem 0.5rem; border-radius: 4px; }
+.dp-footprint-status-ok { background: #eaf5ec; color: #1f5a2d; }
+.dp-footprint-status-warn { background: #fff5d6; color: #7a5500; border-left: 3px solid #d4a017; }
+.dp-footprint-status-err { background: transparent; color: #c44; padding-left: 0; padding-right: 0; }
+.dp-footprint-status-info { background: transparent; color: var(--muted); padding-left: 0; padding-right: 0; }
+.dp-footprint-status-loading { background: transparent; color: var(--muted); padding-left: 0; padding-right: 0; opacity: 0.8; }
+.dp-footprint-source { margin-top: 0.25rem; font-size: 0.62rem; color: var(--muted); font-style: italic; letter-spacing: 0.02em; }
 .dp-lookup-panel { display: none; margin: 0 0 1rem; padding: 0.75rem 0.9rem; background: var(--light); border-left: 3px solid var(--accent); border-radius: 5px; }
 .dp-lookup-panel.open { display: block; }
 .dp-lookup-search-row { display: flex; gap: 0.5rem; margin-bottom: 0.6rem; }
@@ -633,6 +646,12 @@ input, button, select, textarea { font-family: inherit; }
       <div class="dp-field">
         <label>Roof Area m² (from Google Earth)</label>
         <input type="number" id="dp-roof" class="roof-input" placeholder="Enter m² here" min="100" />
+        <button type="button" class="dp-footprint-btn" id="dp-footprint-btn" onclick="runFootprintLookup()" style="display:none;">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M3 21V8l9-5 9 5v13"/><path d="M9 21V12h6v9"/></svg>
+          Get Roof Area
+        </button>
+        <div id="dp-footprint-status" class="dp-footprint-status" style="display:none;"></div>
+        <div id="dp-footprint-source" class="dp-footprint-source" style="display:none;">Source: Microsoft Building Footprints</div>
       </div>
       <div class="dp-field">
         <label>Contact Name (optional)</label>
@@ -887,11 +906,22 @@ function renderPlacesResult(result, panel) {
 
 // Restore the address-row buttons that applyPlacesMatch hides on a successful match.
 // Called whenever a new prospect is loaded so a previous prospect's hidden state doesn't carry over.
+// Also handles the footprint button: visible when the detail panel is open (i.e. a prospect
+// is loaded), hidden when the panel is closed via clearDetail. The panel-display check works
+// because both load paths set display:block before calling this, and clearDetail sets
+// display:none first.
 function _restoreDefaultAddrButtons() {
   const copyBtn = document.getElementById('dp-copy-addr-btn');
   if (copyBtn) copyBtn.style.display = '';
   const liBtn = document.getElementById('dp-linkedin-btn');
   if (liBtn) liBtn.style.display = '';
+  const fpBtn = document.getElementById('dp-footprint-btn');
+  if (fpBtn) {
+    const panel = document.getElementById('detail-panel');
+    const panelOpen = panel && panel.style.display === 'block';
+    fpBtn.style.display = panelOpen ? '' : 'none';
+  }
+  _resetFootprintUi();
 }
 
 // Set dp-track to the most sensible default for the current prospect:
@@ -3255,6 +3285,142 @@ function openLinkedIn() {
   window.open('https://www.linkedin.com/search/results/companies/?keywords=' + encodeURIComponent(name), '_blank');
 }
 
+// Tracks whether the current dp-roof value was populated by /footprint, so the
+// "Source: Microsoft Building Footprints" attribution can hide itself the
+// moment the user manually edits the field. Cleared on every prospect load
+// via _resetFootprintUi() and on every manual edit via the input listener.
+let _footprintSourcePopulated = false;
+
+function _setFootprintStatus(text, variant) {
+  const el = document.getElementById('dp-footprint-status');
+  if (!el) return;
+  el.style.display = 'block';
+  el.className = 'dp-footprint-status' + (variant ? ' dp-footprint-status-' + variant : '');
+  el.textContent = text;
+}
+
+function _resetFootprintUi() {
+  const statusEl = document.getElementById('dp-footprint-status');
+  if (statusEl) {
+    statusEl.style.display = 'none';
+    statusEl.textContent = '';
+    statusEl.className = 'dp-footprint-status';
+  }
+  const sourceEl = document.getElementById('dp-footprint-source');
+  if (sourceEl) sourceEl.style.display = 'none';
+  _footprintSourcePopulated = false;
+}
+
+// /footprint lookup. Cases A-F mirror the response shapes documented in the
+// FOOTPRINT_BRIEF: A=match, B=fallback, C=no_building_at_location,
+// D=no_partition_for_location, E=invalid_input, F=500/network. Conflict
+// protection asks before overwriting an existing dp-roof value.
+async function runFootprintLookup() {
+  if (!currentProspect) return;
+  const btn = document.getElementById('dp-footprint-btn');
+  const sourceEl = document.getElementById('dp-footprint-source');
+  const dpRoof = document.getElementById('dp-roof');
+  if (!btn || !dpRoof) return;
+
+  // Step 2: lat/lng must already be on currentProspect from a Places lookup.
+  if (!currentProspect.location ||
+      typeof currentProspect.location.lat !== 'number' ||
+      typeof currentProspect.location.lng !== 'number') {
+    _setFootprintStatus('Address lookup needed first — run Places lookup.', 'err');
+    return;
+  }
+  const lat = currentProspect.location.lat;
+  const lng = currentProspect.location.lng;
+
+  // Loading state
+  btn.disabled = true;
+  const origLabel = btn.dataset.origLabel || btn.textContent.trim();
+  btn.dataset.origLabel = origLabel;
+  btn.textContent = 'Looking up…';
+  _setFootprintStatus('Fetching building footprint…', 'loading');
+
+  let resp, body;
+  try {
+    resp = await fetch(CH_PROXY + '/footprint?lat=' + encodeURIComponent(lat) + '&lng=' + encodeURIComponent(lng));
+    body = await resp.json();
+  } catch (e) {
+    console.error('Footprint fetch failed:', e);
+    btn.disabled = false;
+    btn.textContent = origLabel;
+    _setFootprintStatus('Footprint service unavailable. Try again or enter manually.', 'err');
+    return;
+  }
+  btn.disabled = false;
+  btn.textContent = origLabel;
+
+  // Case E: 400 invalid_input (shouldn't happen if Places populated location)
+  if (resp.status === 400) {
+    console.error('Footprint endpoint reported invalid_input', body);
+    _setFootprintStatus('Bad coordinates — re-run Places lookup.', 'err');
+    return;
+  }
+  // Case C
+  if (resp.status === 404 && body && body.error === 'no_building_at_location') {
+    _setFootprintStatus('No building found at this location in Microsoft Footprints. Manual entry needed.', 'err');
+    return;
+  }
+  // Case D
+  if (resp.status === 404 && body && body.error === 'no_partition_for_location') {
+    _setFootprintStatus('Location outside footprint dataset coverage. Manual entry needed.', 'err');
+    return;
+  }
+  // Case F: anything else non-OK
+  if (!resp.ok || !body) {
+    console.error('Footprint endpoint error', resp.status, body);
+    _setFootprintStatus('Footprint service unavailable. Try again or enter manually.', 'err');
+    return;
+  }
+
+  // Cases A and B both return 200; resolve area + confidence accordingly.
+  let areaM2, confidence, fallback = false, distanceM = null;
+  if (body.match === true) {
+    areaM2 = body.areaM2;
+    confidence = body.confidence;
+  } else if (body.match === false && body.nearest) {
+    areaM2 = body.nearest.areaM2;
+    confidence = body.nearest.confidence;
+    distanceM = body.nearest.distanceM;
+    fallback = true;
+  } else {
+    console.error('Unexpected /footprint response shape', body);
+    _setFootprintStatus('Unexpected response from footprint service. Try again or enter manually.', 'err');
+    return;
+  }
+
+  // Step 5: conflict protection. Only prompt when dp-roof has a positive numeric value.
+  const existingRaw = (dpRoof.value || '').trim();
+  const existing = existingRaw ? Number(existingRaw) : 0;
+  if (existing > 0) {
+    const ok = confirm(
+      'Roof Area already shows ' + existing + ' m². ' +
+      'Microsoft Building Footprints reports ' + areaM2 + ' m². ' +
+      'Replace?'
+    );
+    if (!ok) {
+      _setFootprintStatus('Existing value kept (' + existing + ' m²).', 'info');
+      return;
+    }
+  }
+
+  // Populate + mark as footprint-sourced so the attribution stays visible
+  // until the user manually edits the field.
+  dpRoof.value = areaM2;
+  _footprintSourcePopulated = true;
+  if (sourceEl) sourceEl.style.display = 'block';
+
+  if (fallback) {
+    _setFootprintStatus('Roof area set from nearest building: ' + areaM2 + ' m² (' + distanceM + ' m away)', 'warn');
+  } else {
+    const confPct = (typeof confidence === 'number') ? ' (confidence ' + Math.round(confidence * 100) + '%)' : '';
+    _setFootprintStatus('Roof area set: ' + areaM2 + ' m²' + confPct, 'ok');
+  }
+}
+
 // LinkedIn people-search quick row in the detail panel.
 // Role keyword (or empty for "all staff") + cleaned company name, exact-phrase quoted.
 function openDetailLinkedIn(role) {
@@ -4386,6 +4552,20 @@ function _wireEnterKeyHandlers() {
 }
 
 _wireEnterKeyHandlers();
+
+// If the user manually edits dp-roof after a /footprint populate, drop the
+// "Source: Microsoft Building Footprints" attribution — the value is no longer
+// solely from that source.
+(function _wireFootprintSourceClear() {
+  const el = document.getElementById('dp-roof');
+  if (!el) return;
+  el.addEventListener('input', function() {
+    if (!_footprintSourcePopulated) return;
+    _footprintSourcePopulated = false;
+    const sourceEl = document.getElementById('dp-footprint-source');
+    if (sourceEl) sourceEl.style.display = 'none';
+  });
+})();
 
 </script>
 <script>
