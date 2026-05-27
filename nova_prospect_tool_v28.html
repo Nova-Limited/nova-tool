@@ -984,6 +984,59 @@ function _pipelineCacheEntryFromRecord(rec) {
   };
 }
 
+// Fetches lat/lng from the Sites table, keyed by linked Company recordId. Used to
+// hydrate cache entries with location data so /footprint can be called from a saved
+// prospect without re-running Places lookup. Best-effort: failures are logged but
+// don't fail the wider cache refresh.
+async function _fetchSiteLocations() {
+  // Map<companyRecordId, { lat, lng }> — picks the most recently modified Site
+  // when a Company has multiple Sites, on the assumption the latest save is
+  // what the user most recently looked at.
+  const byCompany = new Map();
+  // Intermediate _mod tracking discarded before return.
+  let offset = '';
+  try {
+    while (true) {
+      const params = new URLSearchParams();
+      params.append('pageSize', '100');
+      params.append('fields[]', 'Latitude');
+      params.append('fields[]', 'Longitude');
+      params.append('fields[]', 'Company');
+      params.append('fields[]', 'Last Modified');
+      if (offset) params.append('offset', offset);
+      const url = AT_SITES_URL + '?' + params.toString();
+      const resp = await fetch(url);
+      if (!resp.ok) {
+        console.error('Site locations fetch failed:', resp.status);
+        break;
+      }
+      const data = await resp.json();
+      for (const rec of (data.records || [])) {
+        const f = rec.fields || {};
+        const lat = f['Latitude'];
+        const lng = f['Longitude'];
+        const companyIds = f['Company'] || [];
+        if (typeof lat !== 'number' || typeof lng !== 'number') continue;
+        if (!companyIds.length) continue;
+        const mod = f['Last Modified'] || '';
+        for (const cid of companyIds) {
+          const existing = byCompany.get(cid);
+          if (!existing || mod > existing._mod) {
+            byCompany.set(cid, { lat, lng, _mod: mod });
+          }
+        }
+      }
+      if (!data.offset) break;
+      offset = data.offset;
+    }
+  } catch (e) {
+    console.error('Site locations fetch error:', e);
+  }
+  const clean = new Map();
+  for (const [k, v] of byCompany) clean.set(k, { lat: v.lat, lng: v.lng });
+  return clean;
+}
+
 async function fetchSavedPipelineCache() {
   const allRecords = [];
   let offset = '';
@@ -1009,11 +1062,17 @@ async function fetchSavedPipelineCache() {
     return false;
   }
 
+  // Pull Site lat/lng in parallel-ish (sequential here for simplicity; cheap on
+  // a small Sites table). Failures degrade gracefully — entry just lacks location.
+  const siteLocations = await _fetchSiteLocations();
+
   // Rebuild from scratch so dropped records disappear from the cache.
   savedPipelineCache.clear();
   savedPipelineCacheByRecordId.clear();
   for (const rec of allRecords) {
     const entry = _pipelineCacheEntryFromRecord(rec);
+    const loc = siteLocations.get(entry.recordId);
+    if (loc) entry.location = loc;
     if (entry.number) savedPipelineCache.set(entry.number, entry);
     if (entry.recordId) savedPipelineCacheByRecordId.set(entry.recordId, entry);
   }
@@ -1184,10 +1243,15 @@ async function saveProspectToAirtable(data, stage) {
         `Click Cancel to keep the existing site and choose what to do next.`
       );
       if (updateExisting) {
+        const patchFields = { 'Roof Area m2': roofArea };
+        if (data.location && typeof data.location.lat === 'number' && typeof data.location.lng === 'number') {
+          patchFields.Latitude = data.location.lat;
+          patchFields.Longitude = data.location.lng;
+        }
         const patchResp = await fetch(`${AT_SITES_URL}/${existingSite.id}`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ fields: { 'Roof Area m2': roofArea } })
+          body: JSON.stringify({ fields: patchFields })
         });
         if (!patchResp.ok) throw new Error(`Site update: ${await patchResp.text()}`);
         return { companyId: companyRecord.id, siteId: existingSite.id, mode: 'updated-existing' };
@@ -1228,18 +1292,23 @@ async function saveProspectToAirtable(data, stage) {
     companyId = (await cResp.json()).id;
   }
 
+  const siteFields = {
+    'Company Name': data.name,
+    'Site Address': data.address || '',
+    'Sector': sd.label,
+    'Roof Area m2': roofArea,
+    'Active': true,
+    'ContactPhone': data.phone || '',
+    'Company': [companyId]
+  };
+  if (data.location && typeof data.location.lat === 'number' && typeof data.location.lng === 'number') {
+    siteFields.Latitude = data.location.lat;
+    siteFields.Longitude = data.location.lng;
+  }
   const sResp = await fetch(AT_SITES_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ fields: {
-      'Company Name': data.name,
-      'Site Address': data.address || '',
-      'Sector': sd.label,
-      'Roof Area m2': roofArea,
-      'Active': true,
-      'ContactPhone': data.phone || '',
-      'Company': [companyId]
-    }})
+    body: JSON.stringify({ fields: siteFields })
   });
   if (!sResp.ok) throw new Error(`Site create: ${await sResp.text()}`);
   const siteId = (await sResp.json()).id;
@@ -3924,6 +3993,7 @@ async function saveCurrentProspect() {
     website: websiteEl ? websiteEl.value.trim() : '',
     registeredOffice: currentProspect && currentProspect.registeredOffice ? currentProspect.registeredOffice : '',
     track: trackEl ? trackEl.value : '',
+    location: (currentProspect.location && typeof currentProspect.location.lat === 'number' && typeof currentProspect.location.lng === 'number') ? currentProspect.location : null,
     savedAt: new Date().toISOString()
   };
 
@@ -3943,6 +4013,9 @@ async function saveCurrentProspect() {
     } else {
       alert(`${entry.name} saved to pipeline and synced to Airtable.`);
     }
+    // Refresh the pipeline cache immediately so the just-written lat/lng (and
+    // any other Airtable changes) are available without waiting for the 30s poll.
+    fetchSavedPipelineCache();
   } catch(e) {
     savedProspects.push(entry);
     localStorage.setItem('nova_prospects_v2', JSON.stringify(savedProspects));
@@ -4270,6 +4343,11 @@ function loadSavedFromCache(recordId) {
     track: p.track || '',
     activeSitesCount: p.activeSitesCount || 0
   };
+  // Restore lat/lng from the Sites-table merge in _fetchSiteLocations, so
+  // /footprint can be called without re-running Places lookup.
+  if (p.location && typeof p.location.lat === 'number' && typeof p.location.lng === 'number') {
+    currentProspect.location = { lat: p.location.lat, lng: p.location.lng };
+  }
 
   document.getElementById('welcome-screen').style.display = 'none';
   document.getElementById('proposal-output').style.display = 'none';
