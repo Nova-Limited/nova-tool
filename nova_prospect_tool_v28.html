@@ -989,20 +989,16 @@ function _pipelineCacheEntryFromRecord(rec) {
 // prospect without re-running Places lookup. Best-effort: failures are logged but
 // don't fail the wider cache refresh.
 async function _fetchSiteLocations() {
-  // Map<companyRecordId, { lat, lng }> — picks the most recently modified Site
-  // when a Company has multiple Sites, on the assumption the latest save is
-  // what the user most recently looked at.
+  // Map<companyRecordId, { lat, lng }>. First Site seen per Company wins —
+  // simpler and avoids depending on a 'Last Modified' field that doesn't exist
+  // on the Sites table. URL pattern matches fetchSavedPipelineCache (no
+  // fields[] filter — the proxy returns 422 on that form).
   const byCompany = new Map();
-  // Intermediate _mod tracking discarded before return.
   let offset = '';
   try {
     while (true) {
       const params = new URLSearchParams();
       params.append('pageSize', '100');
-      params.append('fields[]', 'Latitude');
-      params.append('fields[]', 'Longitude');
-      params.append('fields[]', 'Company');
-      params.append('fields[]', 'Last Modified');
       if (offset) params.append('offset', offset);
       const url = AT_SITES_URL + '?' + params.toString();
       const resp = await fetch(url);
@@ -1018,12 +1014,8 @@ async function _fetchSiteLocations() {
         const companyIds = f['Company'] || [];
         if (typeof lat !== 'number' || typeof lng !== 'number') continue;
         if (!companyIds.length) continue;
-        const mod = f['Last Modified'] || '';
         for (const cid of companyIds) {
-          const existing = byCompany.get(cid);
-          if (!existing || mod > existing._mod) {
-            byCompany.set(cid, { lat, lng, _mod: mod });
-          }
+          if (!byCompany.has(cid)) byCompany.set(cid, { lat, lng });
         }
       }
       if (!data.offset) break;
@@ -1032,9 +1024,7 @@ async function _fetchSiteLocations() {
   } catch (e) {
     console.error('Site locations fetch error:', e);
   }
-  const clean = new Map();
-  for (const [k, v] of byCompany) clean.set(k, { lat: v.lat, lng: v.lng });
-  return clean;
+  return byCompany;
 }
 
 async function fetchSavedPipelineCache() {
