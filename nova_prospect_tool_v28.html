@@ -1295,6 +1295,22 @@ async function saveProspectToAirtable(data, stage) {
     siteFields.Latitude = data.location.lat;
     siteFields.Longitude = data.location.lng;
   }
+  // Roof-area provenance + solar metrics from currentProspect.solar (set by runRoofLookup).
+  // Guarded so an unrun Get Roof Area save writes exactly as it did before this addition.
+  if (currentProspect && currentProspect.roofAreaSource) {
+    siteFields['Roof Area Source'] = currentProspect.roofAreaSource;
+  }
+  if (currentProspect && currentProspect.solar) {
+    if (typeof currentProspect.solar.maxPanels === 'number') {
+      siteFields['Solar Max Panels'] = currentProspect.solar.maxPanels;
+    }
+    if (typeof currentProspect.solar.yearlyKwhAtMax === 'number') {
+      siteFields['Solar Yearly kWh'] = Math.round(currentProspect.solar.yearlyKwhAtMax);
+    }
+    if (typeof currentProspect.solar.sunshineHrsYr === 'number') {
+      siteFields['Solar Sunshine Hrs'] = Math.round(currentProspect.solar.sunshineHrsYr);
+    }
+  }
   const sResp = await fetch(AT_SITES_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
