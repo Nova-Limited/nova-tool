@@ -2149,6 +2149,19 @@ function _formatChRegisteredOffice(roObj) {
   return parts.join(', ');
 }
 
+// Extract the last UK postcode from a free-form address string. Returns the canonical
+// form (uppercase, single space before the inward part) or null if none found.
+// Standard outward + inward formats accepted: A9 9AA / A9A 9AA / A99 9AA / AA9 9AA / AA9A 9AA / AA99 9AA.
+function _extractPostcode(str) {
+  if (!str) return null;
+  const re = /([A-Z]{1,2}[0-9][A-Z0-9]?)\s?([0-9][A-Z]{2})/g;
+  let last = null;
+  for (const m of String(str).toUpperCase().matchAll(re)) {
+    last = m[1] + ' ' + m[2];
+  }
+  return last;
+}
+
 function _prettyOfficerRole(role) {
   if (!role) return '';
   return String(role).split('-').map(function(w) {
@@ -3397,11 +3410,34 @@ async function runRoofLookup() {
   const dpRoof = document.getElementById('dp-roof');
   if (!btn || !dpRoof) return;
 
-  // Same guard as runFootprintLookup: lat/lng must already be on currentProspect from a Places lookup.
+  // Resolve a location. Prefer the precise Places-sourced lat/lng if present; otherwise
+  // fall back to geocoding the registered-office postcode (Places sometimes returns no
+  // match for rural / farm / heritage entities — postcode coords are approximate but unblock the flow).
+  let postcodeFallbackUsed = false;
+  const hasPlacesLoc = currentProspect.location &&
+                       typeof currentProspect.location.lat === 'number' &&
+                       typeof currentProspect.location.lng === 'number';
+  if (hasPlacesLoc) {
+    if (!currentProspect.roofLocationSource) currentProspect.roofLocationSource = 'places';
+  } else {
+    const dpAddrEl = document.getElementById('dp-address');
+    const sourceStr = currentProspect.registeredOffice || (dpAddrEl ? dpAddrEl.value : '') || '';
+    const pc = _extractPostcode(sourceStr);
+    if (pc) {
+      const geo = await geocodePostcode(pc);
+      if (geo) {
+        currentProspect.location = { lat: geo.lat, lng: geo.lng };
+        currentProspect.roofLocationSource = 'postcode';
+        postcodeFallbackUsed = true;
+      }
+    }
+  }
+
+  // Final guard after the fallback attempt: still no location → tell the user to enter manually.
   if (!currentProspect.location ||
       typeof currentProspect.location.lat !== 'number' ||
       typeof currentProspect.location.lng !== 'number') {
-    _setFootprintStatus('Address lookup needed first — run Places lookup.', 'err');
+    _setFootprintStatus('No location found for this site — enter the roof area manually.', 'err');
     return;
   }
   const lat = currentProspect.location.lat;
@@ -3412,7 +3448,12 @@ async function runRoofLookup() {
   const origLabel = btn.dataset.origLabel || btn.textContent.trim();
   btn.dataset.origLabel = origLabel;
   btn.textContent = 'Looking up…';
-  _setFootprintStatus('Checking roof and solar…', 'loading');
+  _setFootprintStatus(
+    postcodeFallbackUsed
+      ? 'Location from postcode (approximate) — check the roof figure.'
+      : 'Checking roof and solar…',
+    'loading'
+  );
 
   const solar = await lookupRoofAndSolar(lat, lng);
 
