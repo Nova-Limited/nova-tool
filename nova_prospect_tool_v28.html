@@ -1174,6 +1174,21 @@ function applyPlacesMatch(match) {
     } catch(e) {}
   }
 
+  // Stash the bare email domain on currentProspect (so the Officers panel can pre-fill the
+  // EMAIL DOMAIN input next time it renders), and fill the live input if it's already on-screen
+  // and empty. Works even when currentProspect.number is missing (MANUAL entries).
+  if (match.websiteUri && currentProspect) {
+    const bare = _bareDomain(match.websiteUri);
+    if (bare) {
+      if (!currentProspect.emailDomain) currentProspect.emailDomain = bare;
+      const liveDomainInput = document.querySelector('.dp-domain-input, .pc-domain-input');
+      if (liveDomainInput && !(liveDomainInput.value || '').trim()) {
+        liveDomainInput.value = bare;
+        if (currentProspect.number) _emailDomainCache.set(currentProspect.number, bare);
+      }
+    }
+  }
+
   [addrEl, phoneEl, websiteEl].forEach(el => {
     if (!el) return;
     const orig = el.style.background;
@@ -2258,6 +2273,22 @@ function _domainFromEmail(email) {
   return String(email).slice(at + 1).trim().toLowerCase();
 }
 
+// Turn a website (URL or bare domain) into a bare email domain. Strips protocol,
+// "www.", path/query/fragment; lowercases; returns '' if it can't parse one.
+// e.g. "http://www.wintersmarine.co.uk/contact" -> "wintersmarine.co.uk".
+function _bareDomain(url) {
+  if (!url) return '';
+  const s = String(url).trim();
+  if (!s) return '';
+  try {
+    const withProto = /^https?:\/\//i.test(s) ? s : 'https://' + s;
+    const u = new URL(withProto);
+    return u.hostname.replace(/^www\./i, '').trim().toLowerCase();
+  } catch (e) {
+    return '';
+  }
+}
+
 function _emailKey(num, firstName, lastName, domain) {
   return [num, firstName, lastName, domain].map(s => String(s || '').toLowerCase()).join('|');
 }
@@ -2534,9 +2565,10 @@ function _renderEmailResult(line, result, kind, originalChName, companyNumber) {
 
 function _renderDomainInputRow(panel, companyNumber, kind) {
   const cached = _emailDomainCache.get(companyNumber) || '';
+  const fromProspect = (typeof currentProspect !== 'undefined' && currentProspect && currentProspect.emailDomain) ? currentProspect.emailDomain : '';
   const fromDpEmail = _domainFromEmail((document.getElementById('dp-email') || {}).value || '');
   const fromMEmail = _domainFromEmail((document.getElementById('m-email') || {}).value || '');
-  const defaultDomain = cached || fromDpEmail || fromMEmail || '';
+  const defaultDomain = cached || fromProspect || fromDpEmail || fromMEmail || '';
   const row = document.createElement('div');
   row.className = kind + '-domain-row';
   const label = document.createElement('span');
@@ -3546,6 +3578,21 @@ async function _useTradingAddress(address, postcode, website) {
     if (websiteEl && !(websiteEl.value || '').trim()) {
       websiteEl.value = website;
       if (currentProspect) currentProspect.website = website;
+    }
+  }
+
+  // Stash the bare email domain on currentProspect (so the Officers panel can pre-fill the
+  // EMAIL DOMAIN input next time it renders), and fill the live input if it's already on-screen
+  // and empty. Mirrors the applyPlacesMatch addition.
+  if (website && currentProspect) {
+    const bare = _bareDomain(website);
+    if (bare) {
+      if (!currentProspect.emailDomain) currentProspect.emailDomain = bare;
+      const liveDomainInput = document.querySelector('.dp-domain-input, .pc-domain-input');
+      if (liveDomainInput && !(liveDomainInput.value || '').trim()) {
+        liveDomainInput.value = bare;
+        if (currentProspect.number) _emailDomainCache.set(currentProspect.number, bare);
+      }
     }
   }
 
