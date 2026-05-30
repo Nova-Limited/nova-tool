@@ -642,6 +642,11 @@ input, button, select, textarea { font-family: inherit; }
       <button class="dp-li-btn" onclick="openDetailLinkedIn('procurement')">Procurement</button>
       <button class="dp-li-btn" onclick="openDetailLinkedIn('all')">All staff</button>
     </div>
+    <!-- Find trading address: kicks off a slow web-research call on the Worker. User-click only, never auto-fired. -->
+    <div style="margin-bottom: 1rem;">
+      <button type="button" id="dp-findsite-btn" class="dp-btn" style="background:#F7901E;color:#fff;" onclick="findTradingAddress()">Find trading address</button>
+      <div id="dp-findsite-panel" style="display:none;margin-top:0.6rem;"></div>
+    </div>
     <div class="dp-grid">
       <div class="dp-field">
         <label>Roof Area m² (from Google Earth)</label>
@@ -3397,6 +3402,158 @@ function _resetFootprintUi() {
   const sourceEl = document.getElementById('dp-footprint-source');
   if (sourceEl) sourceEl.style.display = 'none';
   _footprintSourcePopulated = false;
+}
+
+// ============================================================
+// Find trading address — slow web-research call (10-30s) to the Worker's
+// /find-site endpoint. User-click only, never auto-fired. Used when the
+// CH registered office is an accountant or director's home and Places
+// didn't find the real operating site.
+// ============================================================
+
+async function findTradingAddress() {
+  if (!currentProspect || !currentProspect.name) {
+    alert('No prospect loaded.');
+    return;
+  }
+  const btn = document.getElementById('dp-findsite-btn');
+  const panel = document.getElementById('dp-findsite-panel');
+  if (!btn) return;
+  if (btn.disabled) return; // Double-click guard.
+
+  // Build request body: only keys whose values actually exist.
+  const body = { companyName: currentProspect.name };
+  if (currentProspect.number) body.companyNumber = currentProspect.number;
+  if (currentProspect.registeredOffice) body.registeredAddress = currentProspect.registeredOffice;
+
+  // Sector: only when we have prospect-specific SIC info from the CH /company fetch.
+  // dp-sector defaults to 'warehouse' for everyone so it's not reliable as a "we know" signal.
+  if (currentProspect.sics && currentProspect.sics.length > 0) {
+    const firstSic = currentProspect.sics[0];
+    const desc = (typeof SIC_DESCRIPTIONS !== 'undefined' && SIC_DESCRIPTIONS[firstSic]) || '';
+    if (desc) body.sector = desc;
+  }
+
+  // Director surnames: only when officers have already been fetched (cached from a prior click).
+  if (currentProspect.number && typeof _officersCache !== 'undefined' && _officersCache.has(currentProspect.number)) {
+    const data = _officersCache.get(currentProspect.number);
+    const items = (data && data.officers && data.officers.items) || [];
+    const surnames = items
+      .filter(function(o) { return !o.resigned_on; })
+      .map(function(o) {
+        const n = (o && o.name) || '';
+        const idx = n.indexOf(',');
+        return idx > 0 ? n.slice(0, idx).trim() : '';
+      })
+      .filter(function(s) { return s.length > 0; });
+    if (surnames.length > 0) body.directorSurnames = surnames;
+  }
+
+  // Loading state + double-click guard.
+  btn.disabled = true;
+  const origLabel = btn.dataset.origLabel || btn.textContent.trim();
+  btn.dataset.origLabel = origLabel;
+  btn.textContent = 'Searching…';
+  if (panel) {
+    panel.style.display = 'block';
+    panel.innerHTML = '<div style="opacity:0.7;font-size:0.85rem;padding:0.5rem;background:#f5f5f7;border-radius:6px;">Searching for trading address — this can take 10–30 seconds…</div>';
+  }
+
+  let respJson = null;
+  let errMsg = '';
+  try {
+    const resp = await fetch(CH_PROXY + '/find-site', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+    if (!resp.ok) {
+      errMsg = 'Search failed (HTTP ' + resp.status + '). Try again later.';
+    } else {
+      respJson = await resp.json();
+    }
+  } catch (e) {
+    errMsg = 'Search failed: ' + ((e && e.message) || 'network error') + '.';
+  }
+
+  btn.disabled = false;
+  btn.textContent = origLabel;
+
+  if (errMsg) {
+    if (panel) panel.innerHTML = '<div style="color:#c44;font-size:0.85rem;padding:0.5rem;background:#fee;border-radius:6px;">' + errMsg + '</div>';
+    return;
+  }
+  _renderFindTradingAddressResults(respJson, panel);
+}
+
+function _renderFindTradingAddressResults(respJson, panel) {
+  if (!panel) return;
+  const candidates = (respJson && Array.isArray(respJson.candidates)) ? respJson.candidates : [];
+  if (candidates.length === 0) {
+    panel.innerHTML = '<div style="opacity:0.7;font-size:0.85rem;padding:0.5rem;background:#f5f5f7;border-radius:6px;">No trading address found.</div>';
+    return;
+  }
+
+  const confColours = { high: '#2a9d4a', medium: '#d49b00', low: '#c44' };
+  const blocks = candidates.map(function(c) {
+    const conf = (c.confidence || '').toString().toLowerCase();
+    const confColour = confColours[conf] || '#888';
+    const confLabel = (c.confidence || 'unknown').toString();
+    // JSON.stringify safely escapes for the inline onclick (matches the applyPlacesMatch pattern elsewhere in this file).
+    const onclickJs = '_useTradingAddress(' + JSON.stringify(c.address || '') + ', ' + JSON.stringify(c.postcode || '') + ')';
+    const sourceLink = c.sourceUrl
+      ? '<a href="' + c.sourceUrl + '" target="_blank" rel="noopener" style="font-size:0.7rem;color:#2563eb;text-decoration:none;">Source ↗</a>'
+      : '';
+    return '<div style="padding:0.6rem 0.75rem;border-radius:6px;background:#fff;border:1px solid #e0e0e5;margin-bottom:0.5rem;font-size:0.85rem;">' +
+             '<div style="display:flex;align-items:flex-start;gap:0.5rem;margin-bottom:0.3rem;flex-wrap:wrap;">' +
+               '<strong style="flex:1;min-width:0;">' + (c.address || '(no address)') + '</strong>' +
+               '<span style="background:' + confColour + ';color:white;padding:0.15rem 0.5rem;border-radius:4px;font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:0.04em;flex-shrink:0;">' + confLabel + '</span>' +
+             '</div>' +
+             (c.rationale ? '<div style="font-size:0.75rem;color:#666;margin-bottom:0.4rem;font-style:italic;">' + c.rationale + '</div>' : '') +
+             '<div style="display:flex;align-items:center;gap:0.6rem;flex-wrap:wrap;">' +
+               sourceLink +
+               '<button type="button" onclick=\'' + onclickJs.replace(/'/g, "&#39;") + '\' style="background:#F7901E;color:white;border:none;padding:0.3rem 0.7rem;border-radius:6px;font-size:0.7rem;font-weight:700;cursor:pointer;letter-spacing:0.02em;text-transform:uppercase;margin-left:auto;">Use this</button>' +
+             '</div>' +
+           '</div>';
+  }).join('');
+  panel.innerHTML = blocks;
+}
+
+async function _useTradingAddress(address, postcode) {
+  // Update dp-address (mirrors the applyPlacesMatch pattern).
+  const addrEl = document.getElementById('dp-address');
+  if (addrEl) {
+    addrEl.value = address || '';
+    addrEl.style.color = '';
+  }
+  if (currentProspect) currentProspect.address = address || '';
+
+  // Geocode the postcode and update location for the roof lookup.
+  let geocoded = false;
+  if (postcode) {
+    const geo = await geocodePostcode(postcode);
+    if (geo) {
+      if (currentProspect) {
+        currentProspect.location = { lat: geo.lat, lng: geo.lng };
+        currentProspect.roofLocationSource = 'find-site';
+      }
+      geocoded = true;
+    }
+  }
+
+  if (geocoded) {
+    // Kick off the roof + solar lookup. runRoofLookup will respect the already-set roofLocationSource.
+    runRoofLookup();
+  } else {
+    // Address set, but no usable coordinates → tell the user roof lookup needs a manual point.
+    const panel = document.getElementById('dp-findsite-panel');
+    if (panel) {
+      const note = document.createElement('div');
+      note.style.cssText = 'margin-top:0.5rem;padding:0.4rem 0.6rem;background:#fef3c7;color:#92400e;border-radius:4px;font-size:0.75rem;';
+      note.textContent = 'Address set, but the postcode could not be geocoded — Get Roof Area may need a manual point.';
+      panel.appendChild(note);
+    }
+  }
 }
 
 // /footprint lookup. Cases A-F mirror the response shapes documented in the
