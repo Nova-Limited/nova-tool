@@ -3480,6 +3480,79 @@ async function runFootprintLookup() {
   }
 }
 
+// ============================================================
+// Step 5a — dormant helpers (not wired into any flow yet).
+// Postcode geocoding, anchored Places confirmation, Place-details
+// follow-up, and Google Solar lookup. Match the existing fetch style.
+// ============================================================
+
+async function geocodePostcode(postcode) {
+  if (!postcode) return null;
+  try {
+    const resp = await fetch('https://api.postcodes.io/postcodes/' + encodeURIComponent(postcode));
+    if (!resp.ok) return null;
+    const body = await resp.json();
+    const r = body && body.result;
+    if (!r || typeof r.latitude !== 'number' || typeof r.longitude !== 'number') return null;
+    return { lat: r.latitude, lng: r.longitude };
+  } catch (e) {
+    console.error('geocodePostcode error:', e);
+    return null;
+  }
+}
+
+async function confirmContact(companyName, lat, lng, companyNumber) {
+  if (!companyName) return null;
+  try {
+    const resp = await fetch(CH_PROXY + '/places', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ companyName: companyName, lat: lat, lng: lng, companyNumber: companyNumber || null })
+    });
+    if (!resp.ok) {
+      console.error('confirmContact failed:', resp.status);
+      return null;
+    }
+    return await resp.json();
+  } catch (e) {
+    console.error('confirmContact error:', e);
+    return null;
+  }
+}
+
+async function confirmPlaceDetails(placeId) {
+  if (!placeId) return null;
+  try {
+    const resp = await fetch(CH_PROXY + '/places?confirm=' + encodeURIComponent(placeId), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' }
+    });
+    if (!resp.ok) {
+      console.error('confirmPlaceDetails failed:', resp.status);
+      return null;
+    }
+    return await resp.json();
+  } catch (e) {
+    console.error('confirmPlaceDetails error:', e);
+    return null;
+  }
+}
+
+async function lookupRoofAndSolar(lat, lng) {
+  if (typeof lat !== 'number' || typeof lng !== 'number') return null;
+  try {
+    const resp = await fetch(CH_PROXY + '/solar?lat=' + encodeURIComponent(lat) + '&lng=' + encodeURIComponent(lng));
+    if (!resp.ok) {
+      console.error('lookupRoofAndSolar failed:', resp.status);
+      return null;
+    }
+    return await resp.json();
+  } catch (e) {
+    console.error('lookupRoofAndSolar error:', e);
+    return null;
+  }
+}
+
 // LinkedIn people-search quick row in the detail panel.
 // Role keyword (or empty for "all staff") + cleaned company name, exact-phrase quoted.
 function openDetailLinkedIn(role) {
