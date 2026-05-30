@@ -646,7 +646,7 @@ input, button, select, textarea { font-family: inherit; }
       <div class="dp-field">
         <label>Roof Area m² (from Google Earth)</label>
         <input type="number" id="dp-roof" class="roof-input" placeholder="Enter m² here" min="100" />
-        <button type="button" class="dp-footprint-btn" id="dp-footprint-btn" onclick="runFootprintLookup()" style="display:none;">
+        <button type="button" class="dp-footprint-btn" id="dp-footprint-btn" onclick="runRoofLookup()" style="display:none;">
           <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M3 21V8l9-5 9 5v13"/><path d="M9 21V12h6v9"/></svg>
           Get Roof Area
         </button>
@@ -3374,6 +3374,72 @@ function _resetFootprintUi() {
 // FOOTPRINT_BRIEF: A=match, B=fallback, C=no_building_at_location,
 // D=no_partition_for_location, E=invalid_input, F=500/network. Conflict
 // protection asks before overwriting an existing dp-roof value.
+async function runRoofLookup() {
+  if (!currentProspect) return;
+  const btn = document.getElementById('dp-footprint-btn');
+  const sourceEl = document.getElementById('dp-footprint-source');
+  const dpRoof = document.getElementById('dp-roof');
+  if (!btn || !dpRoof) return;
+
+  // Same guard as runFootprintLookup: lat/lng must already be on currentProspect from a Places lookup.
+  if (!currentProspect.location ||
+      typeof currentProspect.location.lat !== 'number' ||
+      typeof currentProspect.location.lng !== 'number') {
+    _setFootprintStatus('Address lookup needed first — run Places lookup.', 'err');
+    return;
+  }
+  const lat = currentProspect.location.lat;
+  const lng = currentProspect.location.lng;
+
+  // Loading state (same pattern as runFootprintLookup so the dataset.origLabel is shared if we fall through).
+  btn.disabled = true;
+  const origLabel = btn.dataset.origLabel || btn.textContent.trim();
+  btn.dataset.origLabel = origLabel;
+  btn.textContent = 'Looking up…';
+  _setFootprintStatus('Checking roof and solar…', 'loading');
+
+  const solar = await lookupRoofAndSolar(lat, lng);
+
+  if (solar && solar.found === true && typeof solar.roofAreaM2 === 'number') {
+    // Conflict protection if dp-roof already has a non-empty value.
+    const existing = (dpRoof.value || '').trim();
+    if (existing) {
+      if (!confirm('Replace the existing roof area with the solar figure?')) {
+        btn.disabled = false;
+        btn.textContent = origLabel;
+        return;
+      }
+    }
+    const rounded = Math.round(solar.roofAreaM2);
+    dpRoof.value = String(rounded);
+    currentProspect.solar = {
+      roofAreaM2: solar.roofAreaM2,
+      maxPanels: solar.maxPanels,
+      yearlyKwhAtMax: solar.yearlyKwhAtMax,
+      sunshineHrsYr: solar.sunshineHrsYr,
+      segmentCount: solar.segmentCount,
+      carbonOffsetKgPerMwh: solar.carbonOffsetKgPerMwh
+    };
+    currentProspect.roofAreaSource = 'solar';
+    if (sourceEl) {
+      sourceEl.textContent = 'Source: Google Solar';
+      sourceEl.style.display = '';
+    }
+    _setFootprintStatus(
+      `Roof ${rounded} m2 · ~${solar.maxPanels} panels · ~${Math.round(solar.yearlyKwhAtMax).toLocaleString()} kWh/yr`,
+      'ok'
+    );
+    btn.disabled = false;
+    btn.textContent = origLabel;
+    return;
+  }
+
+  // Fallback: solar returned null or found=false — defer to the existing building-footprint flow.
+  // runFootprintLookup re-uses btn / sourceEl / status helpers and manages its own button state from here.
+  currentProspect.roofAreaSource = 'footprint';
+  return runFootprintLookup();
+}
+
 async function runFootprintLookup() {
   if (!currentProspect) return;
   const btn = document.getElementById('dp-footprint-btn');
