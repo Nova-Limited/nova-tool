@@ -929,6 +929,24 @@ function _restoreDefaultAddrButtons() {
   _resetFootprintUi();
 }
 
+// Clears email-related state on prospect switch. Belongs before any code path that
+// REPLACES currentProspect with a fresh object (selectProspect, generateFromManual,
+// loadSavedFromCache). NOT called from pickLookupResult which mutates currentProspect
+// in place (manual→CH upgrade — the user's typed data should persist).
+function _resetPerProspectEmailState() {
+  if (typeof currentProspect !== 'undefined' && currentProspect) {
+    delete currentProspect.contactEmailLookup;
+    delete currentProspect.emailDomain;
+    delete currentProspect.contactEmail;
+  }
+  const websiteEl = document.getElementById('dp-website');
+  if (websiteEl) websiteEl.value = '';
+  const emailEl = document.getElementById('dp-email');
+  if (emailEl) emailEl.value = '';
+  const domainInputs = document.querySelectorAll('.dp-domain-input, .pc-domain-input');
+  domainInputs.forEach(function(el) { el.value = ''; });
+}
+
 // Set dp-track to the most sensible default for the current prospect:
 // - If currentProspect.track is already set (e.g. loaded from a saved entry), use it
 // - Else if activeSitesCount > 1, pick Multi-Site (signals a portfolio prospect)
@@ -3222,6 +3240,13 @@ async function selectProspect(company, cardEl, sectorKey) {
   document.querySelectorAll('.prospect-card').forEach(c => c.classList.remove('selected'));
   cardEl.classList.add('selected');
 
+  // Reset per-prospect email state if this is a different prospect from the one
+  // currently loaded. Prevents the published-email block + EMAIL DOMAIN + dp-website
+  // from carrying the previous prospect's values when Places returns no match for the new one.
+  const _newNumber = company.company_number || '';
+  const _oldNumber = (currentProspect && currentProspect.number) || '';
+  if (_newNumber !== _oldNumber) _resetPerProspectEmailState();
+
   const resolvedName = company.title || company.company_name || company.name || '';
 
   currentProspect = {
@@ -3951,6 +3976,152 @@ function toggleDetailOfficers() {
     });
 }
 
+// ============================================================
+// Published contact email — surfaces a discovered, ready-to-use address from
+// the company website. Fires /find-contact-email once per prospect+domain and
+// caches the result on currentProspect.contactEmailLookup.
+// ============================================================
+
+function _verifiedBadgeHtml(verified) {
+  let label, bg;
+  if (verified === true) { label = 'verified'; bg = '#2a9d4a'; }
+  else if (verified === false) { label = 'unverified'; bg = '#d49b00'; }
+  else { label = 'not checked'; bg = '#888'; }
+  return '<span style="background:' + bg + ';color:#fff;padding:0.1rem 0.45rem;border-radius:4px;font-size:0.6rem;font-weight:700;text-transform:uppercase;letter-spacing:0.04em;">' + label + '</span>';
+}
+
+function _usePublishedEmail(emailAddress) {
+  if (!emailAddress) return;
+  const emailEl = document.getElementById('dp-email');
+  if (emailEl) emailEl.value = emailAddress;
+  if (typeof currentProspect !== 'undefined' && currentProspect) currentProspect.contactEmail = emailAddress;
+}
+
+function _renderPublishedEmailBlock(container, state) {
+  if (!container) return;
+  if (state._loading) {
+    container.innerHTML = '<div style="font-size:0.78rem;color:var(--muted);font-style:italic;padding:0.5rem 0.7rem;background:var(--light);border-radius:6px;">Searching the website for a published address…</div>';
+    return;
+  }
+  if (state._error) {
+    container.innerHTML = '<div style="font-size:0.78rem;color:#c44;padding:0.5rem 0.7rem;background:#fee;border-radius:6px;">Published email lookup failed: ' + state._error + '</div>';
+    return;
+  }
+  const result = state._result || {};
+  const emails = Array.isArray(result.emails) ? result.emails : [];
+  const best = result.best || '';
+
+  if (!best || emails.length === 0) {
+    container.innerHTML = '<div style="font-size:0.78rem;color:var(--muted);padding:0.5rem 0.7rem;background:var(--light);border-radius:6px;">No published email found on the website. Try the contact form or LinkedIn.</div>';
+    return;
+  }
+
+  const bestEntry = emails.find(function(e) { return e.address === best; }) || {};
+  const badge = _verifiedBadgeHtml(bestEntry.verified);
+  const sourceLink = bestEntry.source
+    ? '<a href="' + bestEntry.source + '" target="_blank" rel="noopener" style="font-size:0.7rem;color:#2563eb;text-decoration:none;">Source ↗</a>'
+    : '';
+  const bestOnclick = '_usePublishedEmail(' + JSON.stringify(best) + ')';
+
+  const bestRow =
+    '<div style="display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap;padding:0.55rem 0.7rem;background:#fff;border:1px solid #e0e0e5;border-radius:6px;margin-bottom:0.4rem;">' +
+      '<strong style="font-family:monospace;font-size:0.85rem;color:var(--dark);word-break:break-all;">' + best + '</strong>' +
+      badge + sourceLink +
+      '<button type="button" onclick=\'' + bestOnclick.replace(/'/g, "&#39;") + '\' style="background:#F7901E;color:white;border:none;padding:0.3rem 0.7rem;border-radius:6px;font-size:0.7rem;font-weight:700;cursor:pointer;letter-spacing:0.02em;text-transform:uppercase;margin-left:auto;">Use this email</button>' +
+    '</div>';
+
+  const others = emails.filter(function(e) { return e.address !== best; });
+  let othersHtml = '';
+  if (others.length > 0) {
+    othersHtml = '<div style="margin-top:0.25rem;border:1px solid #f0f0f3;border-radius:6px;overflow:hidden;background:#fafafb;">' + others.map(function(e, i) {
+      const oBadge = _verifiedBadgeHtml(e.verified);
+      const oSource = e.source
+        ? '<a href="' + e.source + '" target="_blank" rel="noopener" style="font-size:0.65rem;color:#2563eb;text-decoration:none;">Source ↗</a>'
+        : '';
+      const oClick = '_usePublishedEmail(' + JSON.stringify(e.address) + ')';
+      const borderTop = i === 0 ? '' : 'border-top:1px solid #f0f0f3;';
+      return '<div style="display:flex;align-items:center;gap:0.4rem;flex-wrap:wrap;font-size:0.75rem;padding:0.35rem 0.7rem;' + borderTop + '">' +
+               '<span style="font-family:monospace;color:var(--text);word-break:break-all;">' + e.address + '</span>' +
+               oBadge + oSource +
+               '<button type="button" onclick=\'' + oClick.replace(/'/g, "&#39;") + '\' style="background:transparent;color:#F7901E;border:1px solid #F7901E;padding:0.15rem 0.55rem;border-radius:4px;font-size:0.6rem;font-weight:700;cursor:pointer;letter-spacing:0.02em;text-transform:uppercase;margin-left:auto;">Use</button>' +
+             '</div>';
+    }).join('') + '</div>';
+  }
+
+  container.innerHTML = bestRow + othersHtml;
+}
+
+async function _ensurePublishedEmailLookup(container, prospect) {
+  if (!container || !prospect) return;
+
+  // Resolve inputs. Priority: currentProspect.emailDomain (prospect-anchored, set by Places
+  // / Find Trading Address for THIS prospect) ALWAYS wins over the dp-website field, which
+  // can be stale until Places repopulates it on a prospect switch.
+  const websiteEl = document.getElementById('dp-website');
+  const websiteVal = websiteEl ? (websiteEl.value || '').trim() : '';
+  const domainVal = (prospect.emailDomain || '').trim().toLowerCase();
+
+  // Effective domain = the cache key. Prospect-anchored emailDomain first; dp-website fallback.
+  const effectiveDomain = domainVal || _bareDomain(websiteVal);
+  if (!effectiveDomain) {
+    container.innerHTML = '<div style="font-size:0.78rem;color:var(--muted);padding:0.5rem 0.7rem;background:var(--light);border-radius:6px;">Enter a website or email domain above to search for a published contact email.</div>';
+    return;
+  }
+
+  const lookup = prospect.contactEmailLookup || (prospect.contactEmailLookup = {});
+  let state = lookup[effectiveDomain];
+
+  // Render-time domain guard: if a cached completed result claims a different domain than
+  // the one we're now expecting, treat it as stale — drop it and trigger a fresh lookup.
+  if (state && state._result && state._result.domain) {
+    const resultDomain = String(state._result.domain).trim().toLowerCase();
+    if (resultDomain && resultDomain !== effectiveDomain) {
+      delete lookup[effectiveDomain];
+      state = null;
+    }
+  }
+
+  if (state) {
+    _renderPublishedEmailBlock(container, state);
+    return;
+  }
+
+  // First fire for this prospect+domain — mark loading, fire request, then store result.
+  state = { _loading: true };
+  lookup[effectiveDomain] = state;
+  _renderPublishedEmailBlock(container, state);
+
+  // Body mirrors the resolve priority: send domain (prospect-anchored) when we have it,
+  // fall back to website only when no domain is known.
+  const body = {};
+  if (domainVal) body.domain = domainVal;
+  else if (websiteVal) body.website = websiteVal;
+  if (prospect.name) body.companyName = prospect.name;
+  if (prospect.number) body.companyNumber = prospect.number;
+
+  try {
+    const resp = await fetch(CH_PROXY + '/find-contact-email', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+    if (!resp.ok) {
+      state._error = 'HTTP ' + resp.status;
+    } else {
+      state._result = await resp.json();
+    }
+  } catch (e) {
+    state._error = (e && e.message) || 'network error';
+  }
+  state._loading = false;
+
+  // Identity check: only re-render if still the same prospect AND container still in the DOM.
+  // Prevents a stale response from updating a panel that's now showing a different prospect.
+  if (typeof currentProspect !== 'undefined' && currentProspect === prospect && container.isConnected) {
+    _renderPublishedEmailBlock(container, state);
+  }
+}
+
 function _renderDpOfficersPanel(panel, data, companyNumber) {
   panel.innerHTML = '';
 
@@ -3959,6 +4130,20 @@ function _renderDpOfficersPanel(panel, data, companyNumber) {
   oLbl.className = 'dp-officers-label';
   oLbl.textContent = 'Active Officers';
   panel.appendChild(oLbl);
+
+  // --- Published contact email (NEW) ---
+  // Auto-fires /find-contact-email once per prospect+domain; result cached on currentProspect.
+  // Renders independently of officer parseability, so it appears even when there are no active officers.
+  const pubLbl = document.createElement('div');
+  pubLbl.className = 'dp-officers-label';
+  pubLbl.textContent = 'Published contact email';
+  panel.appendChild(pubLbl);
+  const pubBlock = document.createElement('div');
+  pubBlock.className = 'dp-published-email-block';
+  panel.appendChild(pubBlock);
+  if (typeof currentProspect !== 'undefined' && currentProspect) {
+    _ensurePublishedEmailLookup(pubBlock, currentProspect);
+  }
 
   if (data.officers_error) {
     const oe = document.createElement('div');
@@ -4454,6 +4639,11 @@ function generateFromManual() {
   const email = document.getElementById('m-email').value.trim();
   const sector = document.getElementById('m-sector').value;
 
+  // Manual entries always replace currentProspect with fresh data — reset per-prospect
+  // email state so the published-email block and EMAIL DOMAIN don't carry the previous
+  // prospect's values.
+  _resetPerProspectEmailState();
+
   // Seed currentProspect so saveCurrentProspect() and openVisualiser() have identity.
   // Empty number/type signals a manual entry; status:'manual' is informational.
   currentProspect = {
@@ -4743,6 +4933,10 @@ function renderSaved() {
 function loadSavedFromCache(recordId) {
   const p = savedPipelineCacheByRecordId.get(recordId);
   if (!p) { alert('This entry is no longer in the pipeline cache. Refreshing…'); manualRefreshPipeline(); return; }
+
+  // Loading from the SAVED tab always replaces currentProspect with a different prospect —
+  // reset per-prospect email state so the published-email block doesn't carry stale data.
+  _resetPerProspectEmailState();
 
   currentProspect = {
     name: p.name || '',
