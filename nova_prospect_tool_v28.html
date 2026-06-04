@@ -555,6 +555,8 @@ input, button, select, textarea { font-family: inherit; }
       </div>
       <div id="dp-badges" style="display:flex;gap:0.35rem;flex-wrap:wrap;justify-content:flex-end;max-width:200px;"></div>
     </div>
+    <!-- ================== 1. IDENTITY ================== -->
+    <div style="font-size:0.7rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:#F7901E;margin:1.25rem 0 0.5rem;border-bottom:1px solid #f7901e44;padding-bottom:0.35rem;">1. Identity</div>
     <div class="dp-grid">
       <div class="dp-field">
         <label>Site Address</label>
@@ -596,7 +598,39 @@ input, button, select, textarea { font-family: inherit; }
         </select>
       </div>
     </div>
-    <div class="dp-row" style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-top:0.75rem;">
+
+    <!-- ================== 2. LOCATE ================== -->
+    <div style="font-size:0.7rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:#F7901E;margin:1.5rem 0 0.5rem;border-bottom:1px solid #f7901e44;padding-bottom:0.35rem;">2. Locate</div>
+    <div id="dp-locate-hint" style="font-size:0.85rem;font-weight:500;margin-bottom:0.6rem;min-height:1.2em;"></div>
+    <div style="margin-bottom:0.8rem;">
+      <button id="dp-places-btn" class="dp-btn" style="background:#2563eb;color:white;" onclick="runPlacesLookup()">Search Company</button>
+      <div id="dp-places-panel" style="display:none;margin-top:0.5rem;"></div>
+    </div>
+    <!-- Find trading address: kicks off a slow web-research call on the Worker. User-click only, never auto-fired. -->
+    <div style="margin-bottom: 1rem;">
+      <button type="button" id="dp-findsite-btn" class="dp-btn" style="background:#F7901E;color:#fff;" onclick="findTradingAddress()">Find trading address</button>
+      <div id="dp-findsite-panel" style="display:none;margin-top:0.6rem;"></div>
+    </div>
+
+    <!-- ================== 3. MEASURE ================== -->
+    <div style="font-size:0.7rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:#F7901E;margin:1.5rem 0 0.5rem;border-bottom:1px solid #f7901e44;padding-bottom:0.35rem;">3. Measure</div>
+    <div id="dp-measure-hint" style="font-size:0.85rem;font-weight:500;margin-bottom:0.6rem;min-height:1.2em;"></div>
+    <div class="dp-grid">
+      <div class="dp-field">
+        <label>Roof Area m² (from Google Earth)</label>
+        <input type="number" id="dp-roof" class="roof-input" placeholder="Enter m² here" min="100" />
+        <button type="button" class="dp-footprint-btn" id="dp-footprint-btn" onclick="runRoofLookup()" style="display:none;">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M3 21V8l9-5 9 5v13"/><path d="M9 21V12h6v9"/></svg>
+          Get Roof Area
+        </button>
+        <div id="dp-footprint-status" class="dp-footprint-status" style="display:none;"></div>
+        <div id="dp-footprint-source" class="dp-footprint-source" style="display:none;">Source: Microsoft Building Footprints</div>
+      </div>
+    </div>
+
+    <!-- ================== 4. REACH ================== -->
+    <div style="font-size:0.7rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:#F7901E;margin:1.5rem 0 0.5rem;border-bottom:1px solid #f7901e44;padding-bottom:0.35rem;">4. Reach</div>
+    <div class="dp-row" style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-top:0.25rem;">
       <div>
         <label style="display:block;font-size:0.7rem;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;opacity:0.7;margin-bottom:0.25rem;">Site Phone</label>
         <input type="tel" id="dp-phone" placeholder="From Google Places or enter manually" style="width:100%;padding:0.55rem 0.75rem;border:1px solid #d0d0d5;border-radius:4px;font-family:inherit;font-size:0.9rem;" />
@@ -606,7 +640,25 @@ input, button, select, textarea { font-family: inherit; }
         <input type="url" id="dp-website" placeholder="From Google Places or enter manually" style="width:100%;padding:0.55rem 0.75rem;border:1px solid #d0d0d5;border-radius:4px;font-family:inherit;font-size:0.9rem;" />
       </div>
     </div>
-    <div class="addr-buttons">
+    <div class="dp-grid" style="margin-top:0.75rem;">
+      <div class="dp-field">
+        <label>Contact Name (optional)</label>
+        <input type="text" id="dp-contact" placeholder="e.g. Mr J. Smith" />
+      </div>
+      <div class="dp-field">
+        <label>Job Title (optional)</label>
+        <input type="text" id="dp-job-title" placeholder="e.g. Facilities Manager" />
+      </div>
+      <div class="dp-field">
+        <label>Email Address</label>
+        <input type="email" id="dp-email" placeholder="e.g. j.smith@company.co.uk" />
+      </div>
+    </div>
+    <div class="dp-row" style="display:grid;grid-template-columns:1fr;gap:0.5rem;margin-top:0.5rem;">
+      <button type="button" id="dp-findemail-btn" class="dp-btn" style="background:#2563eb;color:white;width:fit-content;" onclick="runFindEmailFromContactField()">Find Email</button>
+      <div id="dp-findemail-result" style="display:none;font-size:0.85rem;line-height:1.5;"></div>
+    </div>
+    <div class="addr-buttons" style="margin-top:0.6rem;">
       <button class="addr-btn addr-btn-copy" id="dp-copy-addr-btn" onclick="copyAddress()">
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
         Copy Address
@@ -642,46 +694,9 @@ input, button, select, textarea { font-family: inherit; }
       <button class="dp-li-btn" onclick="openDetailLinkedIn('procurement')">Procurement</button>
       <button class="dp-li-btn" onclick="openDetailLinkedIn('all')">All staff</button>
     </div>
-    <!-- Find trading address: kicks off a slow web-research call on the Worker. User-click only, never auto-fired. -->
-    <div style="margin-bottom: 1rem;">
-      <button type="button" id="dp-findsite-btn" class="dp-btn" style="background:#F7901E;color:#fff;" onclick="findTradingAddress()">Find trading address</button>
-      <div id="dp-findsite-panel" style="display:none;margin-top:0.6rem;"></div>
-    </div>
-    <div class="dp-grid">
-      <div class="dp-field">
-        <label>Roof Area m² (from Google Earth)</label>
-        <input type="number" id="dp-roof" class="roof-input" placeholder="Enter m² here" min="100" />
-        <button type="button" class="dp-footprint-btn" id="dp-footprint-btn" onclick="runRoofLookup()" style="display:none;">
-          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M3 21V8l9-5 9 5v13"/><path d="M9 21V12h6v9"/></svg>
-          Get Roof Area
-        </button>
-        <div id="dp-footprint-status" class="dp-footprint-status" style="display:none;"></div>
-        <div id="dp-footprint-source" class="dp-footprint-source" style="display:none;">Source: Microsoft Building Footprints</div>
-      </div>
-      <div class="dp-field">
-        <label>Contact Name (optional)</label>
-        <input type="text" id="dp-contact" placeholder="e.g. Mr J. Smith" />
-      </div>
-      <div class="dp-field">
-        <label>Job Title (optional)</label>
-        <input type="text" id="dp-job-title" placeholder="e.g. Facilities Manager" />
-      </div>
-      <div class="dp-field">
-        <label>Email Address</label>
-        <input type="email" id="dp-email" placeholder="e.g. j.smith@company.co.uk" />
-      </div>
-    </div>
-    <div class="dp-row" style="display:grid;grid-template-columns:1fr;gap:0.5rem;margin-top:0.5rem;">
-      <button type="button" id="dp-findemail-btn" class="dp-btn" style="background:#2563eb;color:white;width:fit-content;" onclick="runFindEmailFromContactField()">Find Email</button>
-      <div id="dp-findemail-result" style="display:none;font-size:0.85rem;line-height:1.5;"></div>
-    </div>
-    <div class="dp-actions">
-      <button class="dp-btn dp-btn-gen" onclick="generateFromDetail()">Generate Proposal</button>
-      <button id="dp-places-btn" class="dp-btn" style="background:#2563eb;color:white;" onclick="runPlacesLookup()">Search Company</button>
-      <div id="dp-places-panel" style="display:none;grid-column:1/-1;margin-top:0.5rem;"></div>
-      <button class="dp-btn dp-btn-save" onclick="saveCurrentProspect()">Save Prospect</button>
-      <button class="dp-btn dp-btn-dismiss" onclick="dismissCurrent()">Dismiss</button>
-    </div>
+
+    <!-- ================== 5. ACT ================== -->
+    <div style="font-size:0.7rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:#F7901E;margin:1.5rem 0 0.5rem;border-bottom:1px solid #f7901e44;padding-bottom:0.35rem;">5. Act</div>
 
     <!-- Solar Concept Section -->
     <div class="solar-import-box">
@@ -700,6 +715,12 @@ input, button, select, textarea { font-family: inherit; }
         <button class="dp-btn dp-btn-skip" style="flex:none;display:none;" id="solar-clear-btn" onclick="clearSolarConcept()">&#x2715; Remove</button>
       </div>
       <input type="file" id="novajob-input" accept=".novajob,.json" style="display:none;" onchange="loadNovajob(this)">
+    </div>
+
+    <div class="dp-actions">
+      <button class="dp-btn dp-btn-gen" onclick="generateFromDetail()">Generate Proposal</button>
+      <button class="dp-btn dp-btn-save" onclick="saveCurrentProspect()">Save Prospect</button>
+      <button class="dp-btn dp-btn-dismiss" onclick="dismissCurrent()">Dismiss</button>
     </div>
   </div>
 
@@ -3634,6 +3655,50 @@ function _applyMultiSiteClassification(siteCount) {
   }
   // siteCount 0 or 1: leave track unchanged; reset above already cleared dismiss styling.
 }
+
+// Reads existing DOM state (the Places confidence text in #dp-places-panel and
+// the value of #dp-roof) and updates the two stage hint lines at the top of
+// LOCATE and MEASURE. Pure read-side helper — touches no other function. The
+// 500 ms interval picks up both manual typing and programmatic state changes
+// (runPlacesLookup mutates dp-places-panel via innerHTML; runRoofLookup sets
+// dp-roof.value), neither of which dispatches the events we'd otherwise need
+// to listen for.
+function _refreshStageHints() {
+  const locateHint  = document.getElementById('dp-locate-hint');
+  const measureHint = document.getElementById('dp-measure-hint');
+  if (!locateHint && !measureHint) return;
+  const goodCol = '#15803d';                 // matches existing tag-pipeline-multi-site / addr-confirm green
+  const warnCol = '#92400e';                 // matches existing amber warning swatch (find-site over-15 banner)
+  if (locateHint) {
+    const places = document.getElementById('dp-places-panel');
+    const placesText = places ? (places.textContent || '').toLowerCase() : '';
+    let placesConf = '';
+    if      (/confidence:\s*high/.test(placesText))      placesConf = 'high';
+    else if (/confidence:\s*ambiguous/.test(placesText)) placesConf = 'ambiguous';
+    else if (/confidence:\s*low/.test(placesText))       placesConf = 'low';
+    else if (/confidence:\s*none/.test(placesText))      placesConf = 'none';
+    // high or ambiguous → green confirmed; low / none / absent → amber.
+    if (placesConf === 'high' || placesConf === 'ambiguous') {
+      locateHint.textContent = 'Site confirmed. On to the roof.';
+      locateHint.style.color = goodCol;
+    } else {
+      locateHint.textContent = 'Google could not confirm the site. Try Find Trading Address.';
+      locateHint.style.color = warnCol;
+    }
+  }
+  if (measureHint) {
+    const roofEl  = document.getElementById('dp-roof');
+    const roofVal = roofEl ? Number(roofEl.value) : 0;
+    if (Number.isFinite(roofVal) && roofVal > 0) {
+      measureHint.textContent = 'Roof captured. Now reach the decision-maker.';
+      measureHint.style.color = goodCol;
+    } else {
+      measureHint.textContent = 'Get the roof area before quoting.';
+      measureHint.style.color = warnCol;
+    }
+  }
+}
+setInterval(_refreshStageHints, 500);
 
 function _renderFindTradingAddressResults(respJson, panel) {
   if (!panel) return;
