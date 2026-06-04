@@ -181,6 +181,11 @@ input, button, select, textarea { font-family: inherit; }
 .dp-of-email-btn { background: rgba(232,160,32,0.18); border: 1px solid rgba(232,160,32,0.45); border-radius: 3px; padding: 0.18rem 0.55rem; color: var(--accent); font-size: 0.62rem; cursor: pointer; white-space: nowrap; font-weight: 700; margin-left: 0.4rem; letter-spacing: 0.3px; }
 .dp-of-email-btn:hover { background: rgba(232,160,32,0.32); }
 .dp-of-email-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+/* "Use as contact" pill on each officer row — same shape as dp-of-email-btn but green-accented so it reads as a different action from Find Email. */
+.dp-officer-use-btn { background: rgba(21,128,61,0.12); border: 1px solid rgba(21,128,61,0.35); border-radius: 3px; padding: 0.18rem 0.55rem; color: #15803d; font-size: 0.62rem; cursor: pointer; white-space: nowrap; font-weight: 700; margin-left: 0.4rem; letter-spacing: 0.3px; }
+.dp-officer-use-btn:hover { background: rgba(21,128,61,0.25); }
+.dp-officer-use-btn.is-chosen { background: #15803d; color: white; border-color: #15803d; }
+.dp-officers-row.dp-officer-chosen { background: #eaf6ec; border-left: 3px solid #15803d; padding-left: 0.5rem; }
 .dp-of-email-result-line { font-size: 0.7rem; display: flex; align-items: center; gap: 0.4rem; flex-wrap: wrap; margin: 0.05rem 0 0.35rem 0.5rem; }
 .dp-of-email-result-line.verified { color: var(--green); }
 .dp-of-email-result-line.low { color: #b87a18; }
@@ -4377,12 +4382,54 @@ function _renderDpOfficersPanel(panel, data, companyNumber) {
         row.className = 'dp-officers-row';
         const nm = document.createElement('span');
         nm.className = 'nm';
-        nm.textContent = o.name || '(Unnamed)';
+        // Reformat CH-style "SURNAME, Forename Middlename" to natural-order
+        // title case ("Lucia Bly") for display. Corporate officers (no comma →
+        // _parseOfficerName returns null) fall back to the raw string.
+        // o.name itself is NOT modified — _attachFindEmailUI below still parses
+        // it the same way for the existing Find Email pattern logic.
+        const parsedForDisplay = _parseOfficerName(o.name);
+        const displayName = parsedForDisplay
+          ? (parsedForDisplay.firstName + ' ' + parsedForDisplay.lastName)
+          : (o.name || '(Unnamed)');
+        nm.textContent = displayName;
         row.appendChild(nm);
         row.appendChild(document.createTextNode(
           ' — ' + _prettyOfficerRole(o.officer_role) +
           ' — Appointed: ' + (o.appointed_on || 'unknown')
         ));
+        // "Use as contact" pill — only for officers with a parseable name
+        // (corporate officers can't be a contact). Click writes the reformatted
+        // "Forename Surname" into dp-contact and marks this row chosen. It does
+        // NOT call any endpoint, NOT run Find Email, NOT save anything.
+        if (parsedForDisplay) {
+          const useBtn = document.createElement('button');
+          useBtn.type = 'button';
+          useBtn.className = 'dp-officer-use-btn';
+          useBtn.textContent = 'Use as contact';
+          useBtn.addEventListener('click', function(e) {
+            e.stopPropagation();
+            const contactEl = document.getElementById('dp-contact');
+            if (contactEl) {
+              contactEl.value = displayName;
+              // Fire an input event so anything watching dp-contact (e.g. the
+              // stage-hint refresher) sees the change without a polling delay.
+              contactEl.dispatchEvent(new Event('input', { bubbles: true }));
+            }
+            // Clear any prior "chosen" marker on sibling rows + their buttons.
+            const priorRows = panel.querySelectorAll('.dp-officers-row.dp-officer-chosen');
+            priorRows.forEach(function(r) { r.classList.remove('dp-officer-chosen'); });
+            const priorBtns = panel.querySelectorAll('.dp-officer-use-btn.is-chosen');
+            priorBtns.forEach(function(b) {
+              b.classList.remove('is-chosen');
+              b.textContent = 'Use as contact';
+            });
+            // Mark this row + button as chosen.
+            row.classList.add('dp-officer-chosen');
+            useBtn.classList.add('is-chosen');
+            useBtn.textContent = 'Chosen';
+          });
+          row.appendChild(useBtn);
+        }
         panel.appendChild(row);
         if (companyNumber) _attachFindEmailUI(row, o, panel, companyNumber, 'dp');
       });
