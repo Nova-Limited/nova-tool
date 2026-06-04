@@ -1249,6 +1249,16 @@ async function saveProspectToAirtable(data, stage) {
   if (data.number) companyRecord = await findCompanyByNumber(data.number);
   else if (data.name) companyRecord = await findCompanyByName(data.name);
 
+  // Multi-site data captured by findTradingAddress (stashed on currentProspect).
+  // Always write 'Site Count' to Companies when we have it. Branch Sites are
+  // written only when siteCount >= 2 (single-site is already covered by the
+  // main Site write below). Track override to 'Multi-Site' has already been
+  // applied to the in-memory data.track via _applyMultiSiteClassification.
+  const fsr = (currentProspect && currentProspect.findSiteResult) ? currentProspect.findSiteResult : null;
+  const fsrSiteCount = fsr && Number.isInteger(fsr.siteCount) ? fsr.siteCount : null;
+  const fsrBranches  = fsr && Array.isArray(fsr.branches) ? fsr.branches.slice(0, 15) : [];
+  const multiSiteCompanyFields = (fsrSiteCount !== null) ? { 'Site Count': fsrSiteCount } : {};
+
   if (companyRecord) {
     const existingName = (companyRecord.fields || {})['Company Name'] || data.name;
     const linkedCount = ((companyRecord.fields || {})['Sites'] || []).length;
@@ -1313,7 +1323,8 @@ async function saveProspectToAirtable(data, stage) {
         'Website': data.website || '',
         'RegisteredOffice': data.registeredOffice || '',
         'Track': data.track || 'Standard',
-        'Notes': `Ref: ${data.refNum || ''}. Added via Nova Prospect Tool.`
+        'Notes': `Ref: ${data.refNum || ''}. Added via Nova Prospect Tool.`,
+        ...multiSiteCompanyFields
       }})
     });
     if (!cResp.ok) throw new Error(`Company create: ${await cResp.text()}`);
@@ -1357,6 +1368,47 @@ async function saveProspectToAirtable(data, stage) {
   if (!sResp.ok) throw new Error(`Site create: ${await sResp.text()}`);
   const siteId = (await sResp.json()).id;
 
+  // === Multi-site branches: write up to 15 branch Sites linked to this Company. ===
+  // Only when siteCount >= 2 (single-site is already covered by the main Site
+  // write above). Non-fatal — branch write failure doesn't fail the save; the
+  // main Company + Site rows are already persisted at this point.
+  if (fsrSiteCount !== null && fsrSiteCount >= 2 && fsrBranches.length > 0) {
+    try {
+      const branchRecords = fsrBranches.map(function(b) {
+        const addrLine = [b.address, b.postcode]
+          .filter(function(p){ return p && String(p).trim(); })
+          .map(function(p){ return String(p).trim(); })
+          .join(', ');
+        return {
+          fields: {
+            'Company Name': data.name,
+            'Site Address': addrLine,
+            'Sector': sd.label,
+            'Active': true,
+            'Company': [companyId]
+          }
+        };
+      });
+      // Airtable's create endpoint accepts up to 10 records per request; with
+      // our 15-cap that's at most 2 batches.
+      for (let i = 0; i < branchRecords.length; i += 10) {
+        const batch = branchRecords.slice(i, i + 10);
+        const bResp = await fetch(AT_SITES_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ records: batch, typecast: true })
+        });
+        if (!bResp.ok) {
+          const errText = await bResp.text();
+          console.warn('Branch sites batch ' + (Math.floor(i / 10) + 1) + ' failed:', errText);
+          break;
+        }
+      }
+    } catch (e) {
+      console.warn('Branch sites batch write threw:', (e && e.message) || e);
+    }
+  }
+
   if (companyRecord) {
     const oldTotal = Number((companyRecord.fields || {})['Total Sites Count']) || 0;
     const oldActive = Number((companyRecord.fields || {})['Active Sites Count']) || 0;
@@ -1371,7 +1423,8 @@ async function saveProspectToAirtable(data, stage) {
           'TotalRoofArea': oldRoof + roofArea,
           ...(data.website ? { 'Website': data.website } : {}),
           ...(data.registeredOffice ? { 'RegisteredOffice': data.registeredOffice } : {}),
-          ...(data.track ? { 'Track': data.track } : {})
+          ...(data.track ? { 'Track': data.track } : {}),
+          ...multiSiteCompanyFields
         }})
       });
     } catch(_) {}
@@ -3540,15 +3593,106 @@ async function findTradingAddress() {
     if (panel) panel.innerHTML = '<div style="color:#c44;font-size:0.85rem;padding:0.5rem;background:#fee;border-radius:6px;">' + errMsg + '</div>';
     return;
   }
+
+  // Stash the new multi-site fields on currentProspect so saveProspectToAirtable
+  // can read them later. Tool-side cap at 15 even if the Worker returns more.
+  if (respJson && currentProspect) {
+    const isMultiSite = (typeof respJson.isMultiSite === 'boolean') ? respJson.isMultiSite : null;
+    const siteCount   = (Number.isInteger(respJson.siteCount) && respJson.siteCount >= 0) ? respJson.siteCount : 0;
+    const branchesRaw = Array.isArray(respJson.branches) ? respJson.branches : [];
+    const branches    = branchesRaw.filter(function(b){ return b && typeof b === 'object'; }).slice(0, 15);
+    currentProspect.findSiteResult = { isMultiSite: isMultiSite, siteCount: siteCount, branches: branches };
+    _applyMultiSiteClassification(siteCount);
+  }
+
   _renderFindTradingAddressResults(respJson, panel);
+}
+
+// Classify the prospect in memory based on siteCount. 2–15 = target Multi-Site;
+// >15 = too big (procurement-led); 0/1 = no change. Touches dp-track and the
+// Dismiss button only; does not touch Airtable. Idempotent.
+function _applyMultiSiteClassification(siteCount) {
+  const trackEl   = document.getElementById('dp-track');
+  const dismissBtn = document.querySelector('.dp-btn-dismiss');
+  // Always reset any prior prominent-Dismiss styling so re-runs are clean.
+  if (dismissBtn) {
+    dismissBtn.style.boxShadow = '';
+    dismissBtn.style.transform = '';
+    dismissBtn.style.fontSize  = '';
+    dismissBtn.style.padding   = '';
+  }
+  if (siteCount >= 2 && siteCount <= 15) {
+    if (trackEl) trackEl.value = 'Multi-Site';
+    if (currentProspect) currentProspect.track = 'Multi-Site';
+  } else if (siteCount > 15) {
+    if (dismissBtn) {
+      dismissBtn.style.boxShadow = '0 0 0 3px #fbbf24';
+      dismissBtn.style.fontSize  = '1rem';
+      dismissBtn.style.padding   = '0.6rem 1.2rem';
+    }
+    // Intentionally do NOT change track on >15 prospects.
+  }
+  // siteCount 0 or 1: leave track unchanged; reset above already cleared dismiss styling.
 }
 
 function _renderFindTradingAddressResults(respJson, panel) {
   if (!panel) return;
   const candidates = (respJson && Array.isArray(respJson.candidates)) ? respJson.candidates : [];
   const website = (respJson && respJson.website) ? String(respJson.website).trim() : '';
+
+  // Multi-site panel — additive, renders ABOVE the website header and candidates.
+  // Visible when isMultiSite is non-null AND siteCount >= 1. The classification
+  // (badge/warning + Dismiss prominence + track) is applied separately by
+  // _applyMultiSiteClassification before this render runs.
+  const ms_isMulti = (respJson && typeof respJson.isMultiSite === 'boolean') ? respJson.isMultiSite : null;
+  const ms_count   = (respJson && Number.isInteger(respJson.siteCount) && respJson.siteCount >= 0) ? respJson.siteCount : 0;
+  const ms_branchesRaw = (respJson && Array.isArray(respJson.branches)) ? respJson.branches : [];
+  const ms_branches    = ms_branchesRaw.filter(function(b){ return b && typeof b === 'object'; }).slice(0, 15);
+  const ms_confColours = { high: '#2a9d4a', medium: '#d49b00', low: '#c44' };
+  let multiSiteHeader = '';
+  if (ms_isMulti !== null && ms_count >= 1) {
+    let headingHtml;
+    let bannerHtml = '';
+    if (ms_count === 1) {
+      headingHtml = '<strong>Single site</strong>';
+    } else if (ms_count >= 2 && ms_count <= 15) {
+      headingHtml = '<strong>Multi-site: ' + ms_count + ' sites found</strong>'
+        + ' <span style="background:#16a34a;color:white;padding:0.15rem 0.5rem;border-radius:4px;font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:0.04em;margin-left:0.5rem;">Target: multi-site</span>';
+    } else {
+      // siteCount > 15 → procurement-scale; amber warning. (Dismiss is made prominent
+      // by _applyMultiSiteClassification; we just render the explanation here.)
+      headingHtml = '<strong>Multi-site: ' + ms_count + ' sites found</strong>';
+      bannerHtml  = '<div style="background:#fef3c7;border:1px solid #fbbf24;color:#92400e;padding:0.5rem 0.7rem;border-radius:6px;margin-bottom:0.5rem;font-size:0.8rem;"><strong>' + ms_count + ' sites:</strong> likely procurement-led, outside Nova&rsquo;s profile.</div>';
+    }
+    const branchRows = ms_branches.map(function(b) {
+      const town    = b.town ? '<span style="font-weight:600;">' + b.town + '</span> &mdash; ' : '';
+      const addr    = b.address ? String(b.address) : '';
+      const pc      = b.postcode ? ' <span style="color:#888;font-size:0.75rem;">(' + b.postcode + ')</span>' : '';
+      const conf    = (b.confidence || '').toString().toLowerCase();
+      const cc      = ms_confColours[conf] || '#888';
+      const cLabel  = (b.confidence || 'unknown').toString();
+      const srcLink = b.sourceUrl
+        ? '<a href="' + b.sourceUrl + '" target="_blank" rel="noopener" style="font-size:0.65rem;color:#2563eb;text-decoration:none;margin-left:0.4rem;">Source &#8599;</a>'
+        : '';
+      return '<div style="padding:0.4rem 0.6rem;border-radius:4px;background:#fff;border:1px solid #e0e0e5;margin-bottom:0.3rem;font-size:0.8rem;">'
+           +   '<div style="display:flex;align-items:center;gap:0.4rem;flex-wrap:wrap;">'
+           +     '<div style="flex:1;min-width:0;">' + town + addr + pc + '</div>'
+           +     '<span style="background:' + cc + ';color:white;padding:0.05rem 0.4rem;border-radius:3px;font-size:0.6rem;font-weight:700;text-transform:uppercase;letter-spacing:0.04em;">' + cLabel + '</span>'
+           +     srcLink
+           +   '</div>'
+           + '</div>';
+    }).join('');
+    multiSiteHeader = '<div style="padding:0.6rem 0.75rem;margin-bottom:0.7rem;background:#f9fafb;border:1px solid #e5e7eb;border-radius:6px;">'
+                    + bannerHtml
+                    + '<div style="font-size:0.9rem;margin-bottom:0.5rem;">' + headingHtml + '</div>'
+                    + (ms_branches.length > 0
+                        ? branchRows
+                        : '<div style="opacity:0.6;font-size:0.75rem;">No branch addresses extracted.</div>')
+                    + '</div>';
+  }
+
   if (candidates.length === 0) {
-    panel.innerHTML = '<div style="opacity:0.7;font-size:0.85rem;padding:0.5rem;background:#f5f5f7;border-radius:6px;">No trading address found.</div>';
+    panel.innerHTML = multiSiteHeader + '<div style="opacity:0.7;font-size:0.85rem;padding:0.5rem;background:#f5f5f7;border-radius:6px;">No trading address found.</div>';
     return;
   }
 
@@ -3585,7 +3729,7 @@ function _renderFindTradingAddressResults(respJson, panel) {
              '</div>' +
            '</div>';
   }).join('');
-  panel.innerHTML = websiteHeader + blocks;
+  panel.innerHTML = multiSiteHeader + websiteHeader + blocks;
 }
 
 async function _useTradingAddress(address, postcode, website) {
