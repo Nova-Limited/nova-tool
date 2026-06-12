@@ -7675,39 +7675,25 @@ window.NOVA_PROPOSAL_TEMPLATE = `<!DOCTYPE html>
       linear-gradient(135deg, var(--dark-3), var(--dark-2));
     overflow:hidden;
   }
-  .plate.warm{
-    background:
-      linear-gradient(180deg, rgba(67,66,68,.12) 0%, rgba(67,66,68,.9) 100%),
-      radial-gradient(circle at 82% 22%, rgba(232,160,32,.2), transparent 34%),
-      linear-gradient(135deg, var(--dark-2), var(--dark));
+  /* .plate.warm / .plate-tag / .plate-quote retired alongside the
+     legacy reference-imagery block. The new standalone pull quote uses
+     .inaction-quote (below). */
+
+  /* Standalone inaction pull quote. Replaces the old .plate.warm card so
+     the page no longer leaves room for a missing reference image. */
+  .inaction-quote{
+    display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:18px;
+    margin:6px 0 0;padding:26px 32px;background:var(--paper);
+    border-left:6px solid var(--gold);border-radius:4px;
+    box-shadow:0 1px 0 rgba(67,66,68,.08);
   }
-  .plate-tag{
-position: absolute;
-    top: 14px;
-    left: 14px;
-    font-family: var(--f-mono);
-    font-size: 13.5px;
-    letter-spacing: .14em;
-    text-transform: uppercase;
-    color: rgba(255, 255, 255, .55);
-    background: var(--dark);
-    padding: 5px 9px;
-    border: 1px solid rgba(255, 255, 255, .18);
-    font-weight: 900;
+  .inaction-quote .iq-mark{
+    font-family:Georgia,serif;font-size:64px;line-height:.65;color:var(--gold);font-weight:900;
   }
-  .plate-quote{
-    position:absolute;left:34px;right:34px;bottom:28px;color:#fff;
-    display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:14px;
-    max-width:760px;
-    padding:18px 22px;
-    background:rgba(67,66,68,.76);
-    border-left:5px solid var(--gold);
+  .inaction-quote .iq-close{align-self:end}
+  .inaction-quote .iq-text{
+    font-size:22px;line-height:1.4;font-weight:800;color:var(--ink);max-width:62ch;
   }
-  .plate-quote .gq{
-    font-size:46px;line-height:.7;color:var(--gold);font-weight:900
-  }
-  .plate-quote .gq.close{align-self:end}
-  .plate-quote .qt{font-size:18px;line-height:1.35;font-weight:800;max-width:none}
 
   /* ============ DISCLAIMER ============ */
   .disc{
@@ -8301,20 +8287,7 @@ position: absolute;
     </div>
     <div class="sh-sub" style="margin-top:-24px;margin-left:60px">Estimated kWh and £ saving per month · highlighted months are peak yield</div>
 
-    <div class="mgrid">
-      <div class="mcell"><div class="mo">Jan</div><div class="gen">1,843 kWh</div><div class="sav">£277 saved</div></div>
-      <div class="mcell"><div class="mo">Feb</div><div class="gen">2,545 kWh</div><div class="sav">£383 saved</div></div>
-      <div class="mcell"><div class="mo">Mar</div><div class="gen">4,036 kWh</div><div class="sav">£607 saved</div></div>
-      <div class="mcell high"><div class="mo">Apr</div><div class="gen">4,738 kWh</div><div class="sav">£713 saved</div></div>
-      <div class="mcell high"><div class="mo">May</div><div class="gen">5,484 kWh</div><div class="sav">£825 saved</div></div>
-      <div class="mcell high"><div class="mo">Jun</div><div class="gen">5,616 kWh</div><div class="sav">£845 saved</div></div>
-      <div class="mcell high"><div class="mo">Jul</div><div class="gen">5,353 kWh</div><div class="sav">£805 saved</div></div>
-      <div class="mcell high"><div class="mo">Aug</div><div class="gen">4,738 kWh</div><div class="sav">£713 saved</div></div>
-      <div class="mcell"><div class="mo">Sep</div><div class="gen">3,598 kWh</div><div class="sav">£541 saved</div></div>
-      <div class="mcell"><div class="mo">Oct</div><div class="gen">2,720 kWh</div><div class="sav">£409 saved</div></div>
-      <div class="mcell"><div class="mo">Nov</div><div class="gen">1,843 kWh</div><div class="sav">£277 saved</div></div>
-      <div class="mcell"><div class="mo">Dec</div><div class="gen">1,360 kWh</div><div class="sav">£205 saved</div></div>
-    </div>
+    <div class="mgrid">{{NOVA_MGRID}}</div>
   </section>
 
   <!-- ======================== COMBINED ROI STATEMENT ======================== -->
@@ -8378,14 +8351,11 @@ position: absolute;
     </div>
     <div class="sh-sub" style="margin-top:-24px;margin-left:60px">A deteriorating roof is not a passive risk</div>
 
-    <div class="plate warm">
-      <div class="plate-tag">Reference imagery · industrial roof, UK midlands</div>
-      <div class="plate-quote">
-        <div class="gq">&#8220;</div>
-        <div class="qt">Your statutory obligations under health and safety law do not pause while a decision is deferred.</div>
-        <div class="gq close">&#8221;</div>
-      </div>
-    </div>
+    <blockquote class="inaction-quote">
+      <span class="iq-mark iq-open">&#8220;</span>
+      <span class="iq-text">Your statutory obligations under health and safety law do not pause while a decision is deferred.</span>
+      <span class="iq-mark iq-close">&#8221;</span>
+    </blockquote>
 
     <p class="body" style="margin-top:28px;max-width:74ch">
       Commercial and industrial roof systems degrade in ways not always visible from inside the building. As the occupier of this site, you carry a duty of care under the <strong>Health and Safety at Work Act 1974</strong> and the <strong>Workplace Regulations 1992</strong>. A roof in poor condition is a foreseeable hazard, and foreseeability is the test that matters in both HSE enforcement and civil litigation.
@@ -8441,11 +8411,11 @@ position: absolute;
         </div>
         <div class="cta-c email">
           <div class="lbl">Email</div>
-          <a class="val" href="mailto:hello@nova-limited.com">hello@nova&#8209;limited.com</a>
+          <a class="val" href="mailto:hello@nova-limited.com">hello@nova-limited.com</a>
         </div>
         <div class="cta-c web">
           <div class="lbl">Website</div>
-          <a class="val" href="https://nova-limited.com/">nova&#8209;limited.com</a>
+          <a class="val" href="https://nova-limited.com/">nova-limited.com</a>
         </div>
       </div>
     </div>
@@ -8454,8 +8424,8 @@ position: absolute;
   <!-- ======================== FOOTER ======================== -->
   <div class="pf">
     <span>NOVA <span class="gold">·</span> Registered in England &amp; Wales</span>
-    <span>Eurotech Park <span class="gold">·</span> 6 May 2026 <span class="gold">·</span> NOV&#8209;47291</span>
-    <a class="gold" href="https://nova-limited.com/">nova&#8209;limited.com</a>
+    <span>Eurotech Park <span class="gold">·</span> 6 May 2026 <span class="gold">·</span> NOV-47291</span>
+    <a class="gold" href="https://nova-limited.com/">nova-limited.com</a>
   </div>
 
   </div>
@@ -8719,7 +8689,7 @@ position: absolute;
   // Hero-metric formatter. Anything below £1m shows in full comma format so
   // the reader sees the exact number. Above £1m switches to "£X.Xm" so they
   // don't have to count digits or mentally translate a "k" suffix. Above
-  // £10m drops the decimal — the magnitude is the point at that scale.
+  // £10m drops the decimal: the magnitude is the point at that scale.
   function fmtK(n){
     var rounded = Math.round(n);
     if (rounded >= 10000000) return '£' + Math.round(rounded / 1000000) + 'm';
@@ -8777,7 +8747,10 @@ position: absolute;
     var today = new Date();
     var dateStr = today.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
     var refNum = 'NOV-' + (Math.floor(Math.random() * 90000) + 10000);
-    var refNumNb = refNum.replace('-', '&#8209;');
+    // No non-breaking hyphen substitution — plain hyphen reads as expected
+    // and avoids U+2011 entirely (U+2011/U+2013/U+2014 banned in the
+    // proposal template after the dash sweep).
+    var refNumNb = refNum;
 
     var y15 = yd.slice(0, 15);
     var cum15 = y15.map(function(d){ return d.cum; });
@@ -8802,22 +8775,23 @@ position: absolute;
         + 'padding:16px 18px;letter-spacing:0.08em;font-size:13.5px;text-transform:uppercase;border:none">'
         + txt + '</td></tr>';
     }
+    // Recovery banners are emitted AFTER the first year in which the
+    // cumulative savings meet or exceed the threshold (solar cost or
+    // combined total). Solar and combined are evaluated independently so
+    // either banner only renders for its own crossing year.
+    var solarBannerYear    = -1;
+    var combinedBannerYear = -1;
+    var cumPrev = 0;
+    for (var bi = 0; bi < y15.length; bi++) {
+      var c = y15[bi].cum;
+      if (solarBannerYear    === -1 && c >= solarCost) solarBannerYear    = y15[bi].year;
+      if (combinedBannerYear === -1 && c >= totalCost) combinedBannerYear = y15[bi].year;
+      cumPrev = c;
+    }
+
     var _rows = [];
     for (var ri = 0; ri < y15.length; ri++) {
       var d = y15[ri];
-
-      // Banners go BEFORE the first row of each new phase.
-      if (d.year === solarPaybackYearTbl && solarPaybackYearTbl <= 15) {
-        _rows.push(_bannerRow('#e8a020', '#222222',
-          'Solar investment recovered &middot; Year ' + solarPaybackYearTbl
-          + ' &middot; £' + Math.round(solarCost).toLocaleString('en-GB') + ' returned'));
-      }
-      if (d.year === combinedPaybackYearTbl && combinedPaybackYearTbl <= 15) {
-        var _cumAtComb = y15[Math.min(combinedPaybackYearTbl - 1, y15.length - 1)].cum;
-        _rows.push(_bannerRow('#1a7a4a', '#ffffff',
-          'Full investment recovered &middot; Year ' + combinedPaybackYearTbl
-          + ' &middot; £' + Math.round(_cumAtComb).toLocaleString('en-GB') + ' total returned'));
-      }
 
       // Phase classification + colours.
       var bg, fg, fpFg, border, fpAlpha, fpStr;
@@ -8830,7 +8804,10 @@ position: absolute;
         border = 'rgba(255,255,255,0.10)';
         fpAlpha = ';opacity:0.92';
         var deficit = solarCost - d.cum;
-        fpStr = '£&#8211;' + Math.abs(Math.round(deficit)).toLocaleString('en-GB');
+        // True U+2212 minus sign in front of the pound, not an en-dash
+        // (the en-dash dropped the dash baseline below the digits and
+        // read as a stray dash, not a negative).
+        fpStr = '&minus;£' + Math.abs(Math.round(deficit)).toLocaleString('en-GB');
       } else if (d.year < combinedPaybackYearTbl) {
         // Phase 2 — solar recovered, combined still in progress.
         bg = '#fff3d4';
@@ -8861,6 +8838,20 @@ position: absolute;
         + '<td style="color:' + fpFg + ';font-weight:900' + fpAlpha + '">' + fpStr + '</td>'
         + '</tr>'
       );
+
+      // Banner rows follow the crossing year so the table reads as
+      // "year, year, year, banner: recovered". Solar first, then combined
+      // (combined is always >= solar so this ordering matches reality).
+      if (d.year === solarBannerYear && solarBannerYear <= 15) {
+        _rows.push(_bannerRow('#e8a020', '#222222',
+          'Solar investment recovered &middot; Year ' + solarBannerYear
+          + ' &middot; £' + Math.round(solarCost).toLocaleString('en-GB') + ' returned'));
+      }
+      if (d.year === combinedBannerYear && combinedBannerYear <= 15) {
+        _rows.push(_bannerRow('#1a7a4a', '#ffffff',
+          'Full investment recovered &middot; Year ' + combinedBannerYear
+          + ' &middot; £' + Math.round(d.cum).toLocaleString('en-GB') + ' total returned'));
+      }
     }
     var rowsHtml = _rows.join('');
 
@@ -8972,14 +8963,14 @@ position: absolute;
 
     // --- Footer line (do this BEFORE global date/ref replacements) ---
     t = t.replace(
-      '<span>Eurotech Park <span class="gold">·</span> 6 May 2026 <span class="gold">·</span> NOV&#8209;47291</span>',
+      '<span>Eurotech Park <span class="gold">·</span> 6 May 2026 <span class="gold">·</span> NOV-47291</span>',
       '<span>' + name + ' <span class="gold">·</span> ' + dateStr + ' <span class="gold">·</span> ' + refNumNb + '</span>'
     );
 
     // --- Cover meta (date + ref) ---
     t = t.split('6 May 2026').join(dateStr);
     t = t.split('NOV-47291').join(refNum);
-    t = t.split('NOV&#8209;47291').join(refNumNb);
+    t = t.split('NOV-47291').join(refNumNb);
 
     // --- Intro paragraphs ---
     t = t.replace('<strong>Unit 11, Eurotech Park, Burrington Way, Plymouth</strong>',
@@ -9118,9 +9109,24 @@ position: absolute;
     // operational lifespan: 25 − X. Capped to [1, 25] and [0, 24] respectively.
     var combinedPbCeil = Math.max(1, Math.min(Math.ceil(combinedPb.decimalYears), 25));
     var returnYears = Math.max(0, 25 - combinedPbCeil);
+    // "under N years" only when interpolated payback genuinely falls below
+    // the ceiling year; sub-0.1-year gaps round to "in N years" so a
+    // recovery at 9.95 years reads as "in 10 years", not "under 10 years".
+    var combinedSlack = combinedPbCeil - combinedPb.decimalYears;
+    var underWord = (combinedSlack >= 0.1) ? 'under ' : '';
+    // Also substitute the hardcoded cover-side .hook copy with the same
+    // dynamic figures so the second hook stays consistent with the
+    // dynamically-injected cover headline.
+    t = t.split('Full investment returned in under 6 years.')
+         .join('Full investment returned in ' + underWord + combinedPbCeil
+               + ' ' + (combinedPbCeil === 1 ? 'year' : 'years') + '.');
+    t = t.split('Then 19 years of pure financial return to follow.')
+         .join('Then ' + returnYears + ' '
+               + (returnYears === 1 ? 'year' : 'years')
+               + ' of pure financial return to follow.');
     var coverHeadlineMarkup =
       '<div class="cover-head-block">'
-      + '<div class="cover-headline">Full investment returned in under '
+      + '<div class="cover-headline">Full investment returned in ' + underWord
       + '<span class="num">' + combinedPbCeil + '</span> '
       + (combinedPbCeil === 1 ? 'year' : 'years') + '.</div>'
       + '<div class="cover-subheadline">Then '
@@ -9280,6 +9286,26 @@ position: absolute;
         '<div class="build" style="--build-image:url(\'' + solarConcept.imageBase64 + '\')">'
       );
     }
+
+    // Monthly generation grid: build twelve cells from the actual annual
+    // generation and self-consumption percentage so the table sums back
+    // to annualGen and the £ saving column sums to the Year 1 figure.
+    // The hardcoded placeholder cells in the template are replaced here.
+    // {{NOVA_MGRID}} is the unique anchor we left in the template.
+    var monthlyHtml = '';
+    for (var mi = 0; mi < 12; mi++) {
+      var monthFrac = MONTHLY_F[mi] / MF_TOTAL;
+      var monthGen  = Math.round(annualGen * monthFrac);
+      var monthSav  = Math.round(monthGen * selfPct * RATE);
+      var highPeak  = (mi >= 3 && mi <= 7);  // Apr–Aug, peak yield months
+      monthlyHtml +=
+        '<div class="mcell' + (highPeak ? ' high' : '') + '">'
+        + '<div class="mo">' + MONTHS[mi] + '</div>'
+        + '<div class="gen">' + monthGen.toLocaleString('en-GB') + ' kWh</div>'
+        + '<div class="sav">£' + monthSav.toLocaleString('en-GB') + ' saved</div>'
+        + '</div>';
+    }
+    t = t.replace('{{NOVA_MGRID}}', monthlyHtml);
 
     // Snapshot the proposal's computed values for the email-sequence modal.
     // Captured every render so [placeholders] reflect the current proposal.
