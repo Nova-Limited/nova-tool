@@ -8421,7 +8421,7 @@ window.NOVA_PROPOSAL_TEMPLATE = `<!DOCTYPE html>
       <div class="sh-chev"><svg viewBox="0 0 42 36"><path d="M0 0 L18 18 L0 36 L8 36 L26 18 L8 0 Z M16 0 L34 18 L16 36 L24 36 L42 18 L24 0 Z"/></svg></div>
       <h2 class="sh-title">Projected solar payback</h2>
     </div>
-    <div class="sh-sub" style="margin-top:-24px;margin-left:60px">Years 1 to 15 · cumulative savings vs solar investment line</div>
+    <div class="sh-sub" style="margin-top:-24px;margin-left:60px">Years 1 to 25 · cumulative savings vs solar investment line</div>
     <div class="chart-wrap"><canvas id="pb-chart"></canvas></div>
   </section>
 
@@ -8434,7 +8434,7 @@ window.NOVA_PROPOSAL_TEMPLATE = `<!DOCTYPE html>
       <div class="sh-chev"><svg viewBox="0 0 42 36"><path d="M0 0 L18 18 L0 36 L8 36 L26 18 L8 0 Z M16 0 L34 18 L16 36 L24 36 L42 18 L24 0 Z"/></svg></div>
       <h2 class="sh-title">Annual savings projection</h2>
     </div>
-    <div class="sh-sub" style="margin-top:-24px;margin-left:60px">Years 1 to 15 · charcoal rows recover cost, gold rows show net financial return</div>
+    <div class="sh-sub" style="margin-top:-24px;margin-left:60px">Years 1 to 15 detail, years 16 to 25 summarised · charcoal rows recover cost, gold rows show net financial return</div>
 
     <table class="at">
       <thead><tr><th>Period</th><th>Annual saving</th><th>Cumulative saving</th><th>Net vs solar cost</th></tr></thead>
@@ -8472,7 +8472,6 @@ window.NOVA_PROPOSAL_TEMPLATE = `<!DOCTYPE html>
     <div class="annual-wheel-card">
       <canvas id="annual-return-doughnut"></canvas>
     </div>
-    <p style="font-size:11px;color:rgba(255,255,255,0.6);font-style:italic;text-align:center;max-width:680px;margin:16px auto 0 auto;padding:0 24px">* This model covers Years 1 to 15 only and illustrates when the solar and combined investment is recovered. A further 10 years of unmodelled pure financial return follows before the end of the system's operational lifespan.</p>
   </section>
 
   </div>
@@ -8754,9 +8753,9 @@ window.NOVA_PROPOSAL_TEMPLATE = `<!DOCTYPE html>
   var solarPaybackYear = 6;
   var combinedPaybackYear = 13;
 
-  var solarIdx = Math.max(0, Math.min(14, solarPaybackYear - 1));
-  var combinedIdx = Math.max(0, Math.min(14, combinedPaybackYear - 1));
-  if(combinedIdx <= solarIdx) combinedIdx = Math.min(14, solarIdx + 1);
+  var solarIdx = Math.max(0, Math.min(24, solarPaybackYear - 1));
+  var combinedIdx = Math.max(0, Math.min(24, combinedPaybackYear - 1));
+  if(combinedIdx <= solarIdx) combinedIdx = Math.min(24, solarIdx + 1);
 
   function hex2(v){ var s = v.toString(16); return s.length < 2 ? '0' + s : s; }
   function lerpHex(c1, c2, k){
@@ -8767,10 +8766,17 @@ window.NOVA_PROPOSAL_TEMPLATE = `<!DOCTYPE html>
     return '#' + hex2(r) + hex2(g) + hex2(b);
   }
 
+  // Labels for ONLY the wedges we want to call out — the milestone wedges
+  // (filled in via the milestone arc labels) plus Y1, Y10, Y20, Y25 to
+  // anchor the wheel against the model years.
+  var labelPlan = { 0:'Y1', 9:'Y10', 19:'Y20', 24:'Y25' };
+  labelPlan[solarIdx] = 'Y' + (solarIdx + 1);
+  labelPlan[combinedIdx] = 'Y' + (combinedIdx + 1);
+
   var labels = [], values = [], colors = [], offsets = [], radii = [];
-  var postCombinedCount = 14 - combinedIdx;
-  for(var i = 0; i < 15; i++){
-    labels.push('Y' + (i + 1));
+  var postCombinedCount = 24 - combinedIdx;
+  for(var i = 0; i < 25; i++){
+    labels.push(labelPlan[i] || '');
     if(i < solarIdx){
       values.push(0.4); colors.push('#555456'); offsets.push(0); radii.push(10);
     } else if(i === solarIdx){
@@ -8795,6 +8801,10 @@ window.NOVA_PROPOSAL_TEMPLATE = `<!DOCTYPE html>
       c.save();
 
       arcs.forEach(function(arc, idx){
+        // Only draw the inner-wedge label puck on the indices the labelPlan
+        // designates (milestones plus Y1/Y10/Y20/Y25). With 25 wedges,
+        // drawing every label crashes the wheel visually.
+        if(!labels[idx]) return;
         var a = (arc.startAngle + arc.endAngle) / 2;
         var mid = (arc.innerRadius + arc.outerRadius) / 2;
         var off = offsets[idx] || 0;
@@ -8838,7 +8848,7 @@ window.NOVA_PROPOSAL_TEMPLATE = `<!DOCTYPE html>
       c.textBaseline = 'middle';
       c.fillStyle = '#ffffff';
       c.font = '900 24px ' + chartFontFamily;
-      c.fillText('15 Year Model*', cx, cy - 8);
+      c.fillText('25 Year Model', cx, cy - 8);
 
       c.restore();
     }
@@ -8866,7 +8876,7 @@ window.NOVA_PROPOSAL_TEMPLATE = `<!DOCTYPE html>
       rotation:-90,
       cutout:'42%',
       radius:'100%',
-      layout:{padding:{top:14,right:80,bottom:18,left:80}},
+      layout:{padding:{top:14,right:130,bottom:18,left:130}},
       plugins:{
         legend:{display:false},
         tooltip:{enabled:false}
@@ -8956,11 +8966,32 @@ window.NOVA_PROPOSAL_TEMPLATE = `<!DOCTYPE html>
     var savings15 = y15.map(function(d){ return d.savings; });
     var total15 = y15[14].cum;
 
-    // Three-phase row builder driven by the actual solar/combined payback
-    // years (1-based, rounded up). Inserts gold + green milestone banner rows
-    // immediately before the first row of Phase 2 and Phase 3 respectively.
-    var solarPaybackYearTbl    = Math.ceil(solarPb.decimalYears);     // 1-based
-    var combinedPaybackYearTbl = Math.ceil(combinedPb.decimalYears);  // 1-based
+    // 25-year (full operational lifespan) arrays drive the bar chart, donut
+    // and table summary row so every visual anchors to the headline figure.
+    var y25 = yd.slice(0, 25);
+    var savings25 = y25.map(function(d){ return d.savings; });
+    var cum25 = y25.map(function(d){ return d.cum; });
+    // Force the final cumulative bar to equal the rounded lifetime saving
+    // so the chart and headline reconcile exactly.
+    cum25[24] = Math.round(lifetimeSavings);
+    var purePeriodSaving = cum25[24] - cum25[14];
+
+    // Recovery crossing years: first year in which cumulative savings meet
+    // or exceed the threshold. Drives the table banner rows AND the donut
+    // milestone wedges so both visuals always agree.
+    var solarBannerYear    = -1;
+    var combinedBannerYear = -1;
+    for (var bi = 0; bi < y25.length; bi++) {
+      var c25 = y25[bi].cum;
+      if (solarBannerYear    === -1 && c25 >= solarCost) solarBannerYear    = y25[bi].year;
+      if (combinedBannerYear === -1 && c25 >= totalCost) combinedBannerYear = y25[bi].year;
+    }
+
+    // Three-phase row builder driven by the SAME crossing-year computation
+    // as the banners and donut, so phase colours, banners and donut wedges
+    // always agree on the milestone years.
+    var solarPaybackYearTbl    = solarBannerYear    > 0 ? solarBannerYear    : 26;
+    var combinedPaybackYearTbl = combinedBannerYear > 0 ? combinedBannerYear : 26;
     var phase1Count = Math.max(0, solarPaybackYearTbl - 1);
     // Linear interpolation across the charcoal gradient #434244 → #5a595b
     // (Phase 1 rows fade lighter as they approach the solar milestone).
@@ -8974,20 +9005,6 @@ window.NOVA_PROPOSAL_TEMPLATE = `<!DOCTYPE html>
         + 'padding:16px 18px;letter-spacing:0.08em;font-size:13.5px;text-transform:uppercase;border:none">'
         + txt + '</td></tr>';
     }
-    // Recovery banners are emitted AFTER the first year in which the
-    // cumulative savings meet or exceed the threshold (solar cost or
-    // combined total). Solar and combined are evaluated independently so
-    // either banner only renders for its own crossing year.
-    var solarBannerYear    = -1;
-    var combinedBannerYear = -1;
-    var cumPrev = 0;
-    for (var bi = 0; bi < y15.length; bi++) {
-      var c = y15[bi].cum;
-      if (solarBannerYear    === -1 && c >= solarCost) solarBannerYear    = y15[bi].year;
-      if (combinedBannerYear === -1 && c >= totalCost) combinedBannerYear = y15[bi].year;
-      cumPrev = c;
-    }
-
     var _rows = [];
     for (var ri = 0; ri < y15.length; ri++) {
       var d = y15[ri];
@@ -9052,7 +9069,21 @@ window.NOVA_PROPOSAL_TEMPLATE = `<!DOCTYPE html>
           + ' &middot; £' + Math.round(d.cum).toLocaleString('en-GB') + ' total returned'));
       }
     }
-    var rowsHtml = _rows.join('');
+    // Closing summary row aggregates years 16 to 25 (pure return) so the
+    // table totals reconcile to the 25-year headline figure.
+    var pureBg = '#f0faf4';
+    var pureFg = '#1a7a4a';
+    var pureBorder = 'rgba(26,122,74,0.15)';
+    var pureRowStyle = '--row-bg:' + pureBg + ';--row-fg:' + pureFg
+      + ';--profit-fg:' + pureFg + ';--row-border:' + pureBorder;
+    var summaryRow =
+      '<tr style="' + pureRowStyle + '">'
+      + '<td style="color:' + pureFg + ';font-weight:900">Years 16 to 25 &middot; pure return</td>'
+      + '<td>£' + Math.round(purePeriodSaving).toLocaleString('en-GB') + '</td>'
+      + '<td>£' + Math.round(cum25[24]).toLocaleString('en-GB') + '</td>'
+      + '<td style="color:' + pureFg + ';font-weight:900">£' + Math.round(cum25[24] - solarCost).toLocaleString('en-GB') + '</td>'
+      + '</tr>';
+    var rowsHtml = _rows.join('') + summaryRow;
 
     // Raw percentages reflect the true time periods — used for segment flex
     // widths so the bar visually represents 0→solar→combined→25 accurately.
@@ -9394,15 +9425,32 @@ window.NOVA_PROPOSAL_TEMPLATE = `<!DOCTYPE html>
     // Rename the 4th-column header to "Financial Position".
     t = t.replace('<th>Net vs solar cost</th>', '<th>Financial Position</th>');
 
-    // --- Chart JS: payback bar chart ---
+    // --- Chart JS: payback bar chart (full 25-year operational lifespan) ---
+    // 25 unique labels (empty strings collapse as duplicate categories in
+    // Chart.js, hiding all the bars). Tick visibility is controlled by a
+    // callback below that suppresses everything except Yr 1/5/10/15/20/25.
+    var barLabels = [];
+    for (var bli = 1; bli <= 25; bli++) barLabels.push('Yr ' + bli);
+    t = t.replace(
+      "var labels=['Yr 1','Yr 2','Yr 3','Yr 4','Yr 5','Yr 6','Yr 7','Yr 8','Yr 9','Yr 10','Yr 11','Yr 12','Yr 13','Yr 14','Yr 15'];",
+      'var labels=' + JSON.stringify(barLabels) + ';'
+    );
     t = t.replace(
       'var cum=[6600,13662,21218,29304,37955,47212,57117,67715,79055,91189,104172,118064,132928,148833,165852];',
-      'var cum=[' + cum15.join(',') + '];'
+      'var cum=[' + cum25.join(',') + '];'
     );
-    // costLine fill value AND the two threshold comparisons in recovery/return data
-    t = t.split('new Array(15).fill(43875)').join('new Array(15).fill(' + solarCost + ')');
+    // costLine fill (15 → 25) AND the two threshold comparisons.
+    t = t.split('new Array(15).fill(43875)').join('new Array(25).fill(' + solarCost + ')');
     t = t.split("v >= 43875 ? '#1a7a4a'").join("v >= " + solarCost + " ? '#1a7a4a'");
     t = t.replace("label:'Solar investment (£43,875)'", "label:'Solar investment (" + fmtGBP(solarCost) + ")'");
+    // Thinner bars accommodate 25 entries without overlap.
+    t = t.replace('barThickness:18,', 'barThickness:10,');
+    t = t.replace('maxBarThickness:22,', 'maxBarThickness:14,');
+    // Tick callback: show only the five milestone labels along the x-axis.
+    t = t.replace(
+      "ticks:{color:ink2,font:{size:11.5,weight:'700'},padding:6},",
+      "ticks:{color:ink2,font:{size:11.5,weight:'700'},padding:6,autoSkip:false,callback:function(v,i){return [0,4,9,14,19,24].indexOf(i)!==-1?this.getLabelForValue(v):'';}},"
+    );
     // Add layout padding to the bar chart so bars have breathing room when
     // the wrap stretches to fill the full page height. The bar chart's
     // options block starts with "responsive:true,maintainAspectRatio:false,"
@@ -9422,10 +9470,12 @@ window.NOVA_PROPOSAL_TEMPLATE = `<!DOCTYPE html>
       '<!-- ======================== DISCLAIMER ======================== -->\n  <section class="sec light" style="padding-top:32px;padding-bottom:48px">\n    <div class="disc">\n      ' + discText + '\n    </div>\n  </section>\n\n  <!-- ======================== CTA ======================== -->',
       '<!-- ======================== CTA ======================== -->'
     );
-    var wheelFootnoteHtml = '<p style="font-size:11px;color:rgba(255,255,255,0.6);font-style:italic;text-align:center;max-width:680px;margin:16px auto 0 auto;padding:0 24px">* This model covers Years 1 to 15 only and illustrates when the solar and combined investment is recovered. A further 10 years of unmodelled pure financial return follows before the end of the system\'s operational lifespan.</p>';
+    // Inject the indicative-figures disclaimer directly under the wheel
+    // section. The unmodelled-years footnote is retired now that the wheel
+    // covers the full 25-year operational lifespan.
     t = t.replace(
-      '<canvas id="annual-return-doughnut"></canvas>\n    </div>\n    ' + wheelFootnoteHtml + '\n  </section>\n\n  </div>\n\n  <div class="pdf-page p-monthly-roof">',
-      '<canvas id="annual-return-doughnut"></canvas>\n    </div>\n    ' + wheelFootnoteHtml + '\n  </section>\n  <section class="sec light" style="flex:0 0 auto;padding:18px var(--pad-x) 22px"><div class="disc">' + discText + '</div></section>\n\n  </div>\n\n  <div class="pdf-page p-monthly-roof">'
+      '<canvas id="annual-return-doughnut"></canvas>\n    </div>\n  </section>\n\n  </div>\n\n  <div class="pdf-page p-monthly-roof">',
+      '<canvas id="annual-return-doughnut"></canvas>\n    </div>\n  </section>\n  <section class="sec light" style="flex:0 0 auto;padding:18px var(--pad-x) 22px"><div class="disc">' + discText + '</div></section>\n\n  </div>\n\n  <div class="pdf-page p-monthly-roof">'
     );
 
     // --- Chart Y-axis tick callback: add comma separators for axis labels ---
@@ -9437,8 +9487,11 @@ window.NOVA_PROPOSAL_TEMPLATE = `<!DOCTYPE html>
     t = t.split("ctx.parsed.y.toLocaleString()").join("ctx.parsed.y.toLocaleString('en-GB')");
 
     // --- Doughnut wheel: substitute the two 1-based payback year numbers ---
-    var solarPaybackYr = Math.max(1, Math.min(15, Math.ceil(solarPb.decimalYears)));
-    var combinedPaybackYr = Math.max(1, Math.min(15, Math.ceil(combinedPb.decimalYears)));
+    // Wheel milestones must match the table banner rows exactly, so they
+    // derive from the SAME crossing-year computation (first year cumulative
+    // savings >= threshold), not Math.ceil of the interpolated decimal year.
+    var solarPaybackYr    = Math.max(1, Math.min(25, solarBannerYear    > 0 ? solarBannerYear    : 25));
+    var combinedPaybackYr = Math.max(1, Math.min(25, combinedBannerYear > 0 ? combinedBannerYear : 25));
     t = t.replace('var solarPaybackYear = 6;', 'var solarPaybackYear = ' + solarPaybackYr + ';');
     t = t.replace('var combinedPaybackYear = 13;', 'var combinedPaybackYear = ' + combinedPaybackYr + ';');
 
