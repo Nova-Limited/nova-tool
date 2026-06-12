@@ -1138,9 +1138,15 @@ async function fetchSavedPipelineCache() {
   savedPipelineCacheLastUpdated = Date.now();
   console.log('Pipeline cache refreshed:', savedPipelineCacheByRecordId.size, 'records');
   _updatePipelineStatusBar();
-  // If the SAVED tab is currently visible, repaint it now so a tab that
-  // was opened before the initial fetch completed (or before a poll) no
-  // longer shows the "No prospects in the pipeline yet" empty state.
+  // Always dispatch a refresh event so any listener (currently the SAVED
+  // tab) can repaint without us having to know which UI is open. Keeps
+  // the active-tab repaint as a belt-and-braces fallback in case the
+  // listener was unregistered or replaced.
+  try {
+    document.dispatchEvent(new CustomEvent('pipeline:refreshed', {
+      detail: { count: savedPipelineCacheByRecordId.size }
+    }));
+  } catch (_) {}
   var savedTab = document.getElementById('tab-saved');
   if (savedTab && savedTab.classList.contains('active')) renderSaved();
   return true;
@@ -3456,6 +3462,13 @@ async function selectProspect(company, cardEl, sectorKey) {
     document.getElementById('dp-address').style.color = '';
   }
 
+  // Fill from the pipeline cache (Airtable) and the localStorage fallback if
+  // this prospect was previously saved — so re-opening Haye Farm via Search
+  // shows its previously stored phone, contact, etc. rather than blanks.
+  // Runs sync after init; the async Places result may still overwrite a
+  // subset of fields when it returns, which is the intended fresh-data path.
+  _hydrateDetailFromExistingSave();
+
   document.getElementById('dp-roof').focus();
 }
 
@@ -4846,6 +4859,113 @@ function generateFromDetail() {
   (window.renderDesignerProposal || buildProposal)(prospect);
 }
 
+// Hydrate the open detail panel from any existing saved record we can match
+// — pipeline cache (Airtable) primary, localStorage fallback — so re-opening
+// a prospect that is already in the pipeline (via Search or Manual, not just
+// via the SAVED tab) shows its phone, contact, etc. instead of blanks.
+// Only fills empty form fields and empty currentProspect slots: never
+// overwrites a value the user (or an upstream lookup) has already set.
+// Also backfills currentProspect.airtableCompanyId / airtableSiteId so the
+// editable Company Name and the read-modify-write Save can write through.
+function _hydrateDetailFromExistingSave() {
+  if (!currentProspect) return;
+  var cache = null;
+  if (currentProspect.number) {
+    cache = savedPipelineCache.get(String(currentProspect.number)) || null;
+  }
+  if (!cache && currentProspect.airtableCompanyId) {
+    cache = savedPipelineCacheByRecordId.get(currentProspect.airtableCompanyId) || null;
+  }
+  if (!cache && currentProspect.name) {
+    var nameQ = String(currentProspect.name).trim().toLowerCase();
+    var hit = null;
+    savedPipelineCacheByRecordId.forEach(function(v) {
+      if (hit) return;
+      if (v && v.name && String(v.name).trim().toLowerCase() === nameQ) hit = v;
+    });
+    cache = hit;
+  }
+  var ls = null;
+  try {
+    if (Array.isArray(savedProspects)) {
+      ls = savedProspects.find(function(x) {
+        return x && currentProspect.airtableCompanyId && x.airtableCompanyId === currentProspect.airtableCompanyId;
+      }) || null;
+      if (!ls && currentProspect.airtableSiteId) {
+        ls = savedProspects.find(function(x) {
+          return x && x.airtableSiteId === currentProspect.airtableSiteId;
+        }) || null;
+      }
+      if (!ls && currentProspect.number) {
+        ls = savedProspects.find(function(x) {
+          return x && x.number && String(x.number) === String(currentProspect.number);
+        }) || null;
+      }
+      if (!ls && currentProspect.name) {
+        var n = String(currentProspect.name).trim().toLowerCase();
+        ls = savedProspects.find(function(x) {
+          return x && x.name && String(x.name).trim().toLowerCase() === n;
+        }) || null;
+      }
+    }
+  } catch (e) { ls = null; }
+  if (!cache && !ls) return;
+  var c = cache || {};
+  var l = ls || {};
+  var pick = function(a, b) {
+    if (a != null && String(a).trim() !== '') return String(a);
+    if (b != null && String(b).trim() !== '') return String(b);
+    return '';
+  };
+  var phoneEff   = pick(c.phone,    l.phone);
+  var contactEff = pick(c.contact,  l.contact);
+  var jobEff     = pick(c.jobTitle, l.jobTitle);
+  var emailEff   = pick(c.email,    l.email);
+  var websiteEff = pick(c.website,  l.website);
+  var siteAddrEff= pick(c.siteAddress, l.address);
+  var roofEff    = (c.roofArea && Number(c.roofArea) > 0)
+                     ? Number(c.roofArea)
+                     : ((l.roofArea && Number(l.roofArea) > 0) ? Number(l.roofArea) : 0);
+  var trackEff   = pick(c.track, l.track);
+  var fillEmpty = function(el, val) {
+    if (!el || !val) return;
+    if ((el.value || '').trim() === '') el.value = val;
+  };
+  fillEmpty(document.getElementById('dp-phone'),     phoneEff);
+  fillEmpty(document.getElementById('dp-contact'),   contactEff);
+  fillEmpty(document.getElementById('dp-job-title'), jobEff);
+  fillEmpty(document.getElementById('dp-email'),     emailEff);
+  fillEmpty(document.getElementById('dp-website'),   websiteEff);
+  var addrEl = document.getElementById('dp-address');
+  if (addrEl && siteAddrEff) {
+    var curAddr = (addrEl.value || '').trim();
+    if (curAddr === '' || curAddr.toLowerCase().indexOf('looking up') !== -1) {
+      addrEl.value = siteAddrEff;
+      addrEl.style.color = '';
+    }
+  }
+  var roofEl = document.getElementById('dp-roof');
+  if (roofEl && roofEff && (roofEl.value || '').trim() === '') roofEl.value = roofEff;
+  if (!currentProspect.phone        && phoneEff)    currentProspect.phone = phoneEff;
+  if (!currentProspect.contact      && contactEff)  currentProspect.contact = contactEff;
+  if (!currentProspect.jobTitle     && jobEff)      currentProspect.jobTitle = jobEff;
+  if (!currentProspect.email        && emailEff)    currentProspect.email = emailEff;
+  if (!currentProspect.website      && websiteEff)  currentProspect.website = websiteEff;
+  if (!currentProspect.siteAddress  && siteAddrEff) currentProspect.siteAddress = siteAddrEff;
+  if (!currentProspect.address      && siteAddrEff) currentProspect.address = siteAddrEff;
+  if (!currentProspect.roofArea     && roofEff)     currentProspect.roofArea = roofEff;
+  if (!currentProspect.track        && trackEff)    currentProspect.track = trackEff;
+  if (!currentProspect.airtableCompanyId && c.recordId)         currentProspect.airtableCompanyId = c.recordId;
+  if (!currentProspect.airtableSiteId    && c.siteRecordId)     currentProspect.airtableSiteId    = c.siteRecordId;
+  if (!currentProspect.airtableCompanyId && l.airtableCompanyId) currentProspect.airtableCompanyId = l.airtableCompanyId;
+  if (!currentProspect.airtableSiteId    && l.airtableSiteId)    currentProspect.airtableSiteId    = l.airtableSiteId;
+  if (!currentProspect.location && c.location && typeof c.location.lat === 'number' && typeof c.location.lng === 'number') {
+    currentProspect.location = c.location;
+  } else if (!currentProspect.location && l.location && typeof l.location.lat === 'number' && typeof l.location.lng === 'number') {
+    currentProspect.location = l.location;
+  }
+}
+
 // Editable company name: swap the heading <div> for a small text input,
 // commit on Enter / blur, abort on Escape. Updates currentProspect,
 // the localStorage savedProspects entry, and the Companies + linked
@@ -5000,6 +5120,13 @@ async function saveCurrentProspect() {
     if (!result) return;
     entry.airtableCompanyId = result.companyId;
     entry.airtableSiteId = result.siteId;
+    // Mirror IDs back onto currentProspect so a subsequent action on the
+    // same open panel (Edit company name, re-save, etc.) has the Airtable
+    // identifiers without waiting for the next pipeline-cache poll.
+    if (currentProspect) {
+      currentProspect.airtableCompanyId = result.companyId;
+      currentProspect.airtableSiteId    = result.siteId;
+    }
     if (!savedProspects.find(p => p.airtableSiteId === result.siteId)) {
       savedProspects.push(entry);
       localStorage.setItem('nova_prospects_v2', JSON.stringify(savedProspects));
@@ -5089,6 +5216,12 @@ function generateFromManual() {
   _hideChAddressSwap();
   _restoreDefaultAddrButtons();
   _setTrackDefault();
+
+  // Manual entries match against any prior save (localStorage by name, or
+  // cache by recordId if we hit a same-name pipeline record) so re-typing
+  // an existing prospect's name carries through its phone/contact/etc and
+  // restores the Airtable IDs that Save and Edit-name need.
+  _hydrateDetailFromExistingSave();
 
   // Scroll panel into view.
   const main = document.getElementById('main-area');
@@ -5635,6 +5768,15 @@ function loadNovajob(input) {
 // Kick off pipeline-cache polling once the script has loaded. fetchSavedPipelineCache
 // runs immediately and then every 30s thereafter. Idempotent — safe if called twice.
 startPipelineCachePolling();
+
+// Re-render the SAVED list on every pipeline-cache refresh. Covers the race
+// where the user opens the SAVED tab before the initial fetch resolves: the
+// tab paints its empty state, the cache later fills, the event fires, and
+// the list is repainted in place without needing the user to re-click.
+document.addEventListener('pipeline:refreshed', function() {
+  var savedTab = document.getElementById('tab-saved');
+  if (savedTab && savedTab.classList.contains('active')) renderSaved();
+});
 
 // Wire Enter-key shortcuts across text inputs so the keyboard-driven flow doesn't
 // require reaching for the mouse. Existing handler on #dp-lookup-input (set up inside
