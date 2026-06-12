@@ -554,8 +554,12 @@ input, button, select, textarea { font-family: inherit; }
   <!-- PROSPECT DETAIL -->
   <div class="detail-panel" id="detail-panel" style="display:none;">
     <div class="dp-header">
-      <div>
-        <div class="dp-name" id="dp-name"></div>
+      <div style="flex:1;min-width:0;">
+        <div style="display:flex;align-items:center;gap:0.5rem;">
+          <div class="dp-name" id="dp-name" style="flex:1;min-width:0;"></div>
+          <button type="button" id="dp-name-edit-btn" onclick="dpStartEditName()" title="Edit company name"
+            style="background:transparent;border:1px solid #d4d4d0;border-radius:6px;padding:0 8px;height:26px;font-size:11px;cursor:pointer;font-family:inherit;color:#666;">Edit</button>
+        </div>
         <div class="dp-meta" id="dp-meta"></div>
       </div>
       <div id="dp-badges" style="display:flex;gap:0.35rem;flex-wrap:wrap;justify-content:flex-end;max-width:200px;"></div>
@@ -1033,15 +1037,17 @@ function _pipelineCacheEntryFromRecord(rec) {
   };
 }
 
-// Fetches lat/lng from the Sites table, keyed by linked Company recordId. Used to
-// hydrate cache entries with location data so /footprint can be called from a saved
-// prospect without re-running Places lookup. Best-effort: failures are logged but
-// don't fail the wider cache refresh.
+// Fetches per-site data from the Sites table, keyed by linked Company
+// recordId: { lat, lng, phone, siteAddress, siteRecordId }. Used to
+// hydrate cache entries so the detail panel can render phone / site
+// address without losing them on save, and /footprint can be called
+// without re-running Places lookup. Failures are logged but don't fail
+// the wider cache refresh.
 async function _fetchSiteLocations() {
-  // Map<companyRecordId, { lat, lng }>. First Site seen per Company wins —
-  // simpler and avoids depending on a 'Last Modified' field that doesn't exist
-  // on the Sites table. URL pattern matches fetchSavedPipelineCache (no
-  // fields[] filter — the proxy returns 422 on that form).
+  // First Site seen per Company wins — simpler and avoids depending on a
+  // 'Last Modified' field that doesn't exist on the Sites table. URL
+  // pattern matches fetchSavedPipelineCache (no fields[] filter — the
+  // proxy returns 422 on that form).
   const byCompany = new Map();
   let offset = '';
   try {
@@ -1058,13 +1064,20 @@ async function _fetchSiteLocations() {
       const data = await resp.json();
       for (const rec of (data.records || [])) {
         const f = rec.fields || {};
+        const companyIds = f['Company'] || [];
+        if (!companyIds.length) continue;
         const lat = f['Latitude'];
         const lng = f['Longitude'];
-        const companyIds = f['Company'] || [];
-        if (typeof lat !== 'number' || typeof lng !== 'number') continue;
-        if (!companyIds.length) continue;
+        const entry = {
+          siteRecordId: rec.id || '',
+          phone:        String(f['ContactPhone'] || '').trim(),
+          siteAddress:  String(f['Site Address'] || '').trim()
+        };
+        if (typeof lat === 'number' && typeof lng === 'number') {
+          entry.lat = lat; entry.lng = lng;
+        }
         for (const cid of companyIds) {
-          if (!byCompany.has(cid)) byCompany.set(cid, { lat, lng });
+          if (!byCompany.has(cid)) byCompany.set(cid, entry);
         }
       }
       if (!data.offset) break;
@@ -1110,14 +1123,26 @@ async function fetchSavedPipelineCache() {
   savedPipelineCacheByRecordId.clear();
   for (const rec of allRecords) {
     const entry = _pipelineCacheEntryFromRecord(rec);
-    const loc = siteLocations.get(entry.recordId);
-    if (loc) entry.location = loc;
+    const site = siteLocations.get(entry.recordId);
+    if (site) {
+      if (typeof site.lat === 'number' && typeof site.lng === 'number') {
+        entry.location = { lat: site.lat, lng: site.lng };
+      }
+      entry.phone        = site.phone        || '';
+      entry.siteAddress  = site.siteAddress  || '';
+      entry.siteRecordId = site.siteRecordId || '';
+    }
     if (entry.number) savedPipelineCache.set(entry.number, entry);
     if (entry.recordId) savedPipelineCacheByRecordId.set(entry.recordId, entry);
   }
   savedPipelineCacheLastUpdated = Date.now();
   console.log('Pipeline cache refreshed:', savedPipelineCacheByRecordId.size, 'records');
   _updatePipelineStatusBar();
+  // If the SAVED tab is currently visible, repaint it now so a tab that
+  // was opened before the initial fetch completed (or before a poll) no
+  // longer shows the "No prospects in the pipeline yet" empty state.
+  var savedTab = document.getElementById('tab-saved');
+  if (savedTab && savedTab.classList.contains('active')) renderSaved();
   return true;
 }
 
@@ -4821,31 +4846,152 @@ function generateFromDetail() {
   (window.renderDesignerProposal || buildProposal)(prospect);
 }
 
+// Editable company name: swap the heading <div> for a small text input,
+// commit on Enter / blur, abort on Escape. Updates currentProspect,
+// the localStorage savedProspects entry, and the Companies + linked
+// Sites records in Airtable via the Worker /airtable PATCH passthrough.
+// Field IDs are the canonical Company Name fields supplied with the
+// spec: Companies fldML2m4yjR15wpXE, Sites fldKSYfxzCiZcBbOh.
+const _AT_COMPANY_NAME_FIELD_ID = 'fldML2m4yjR15wpXE';
+const _AT_SITE_COMPANY_NAME_FIELD_ID = 'fldKSYfxzCiZcBbOh';
+
+function dpStartEditName() {
+  if (!currentProspect) return;
+  const nameEl = document.getElementById('dp-name');
+  const btn    = document.getElementById('dp-name-edit-btn');
+  if (!nameEl || nameEl.dataset.editing === '1') return;
+  const original = (currentProspect.name || nameEl.textContent || '').trim();
+  nameEl.dataset.editing = '1';
+  if (btn) btn.style.display = 'none';
+  const input = document.createElement('input');
+  input.type = 'text';
+  input.value = original;
+  input.style.cssText = 'width:100%;font:inherit;font-size:1.15rem;font-weight:700;color:var(--dark);'
+    + 'background:#fff;border:1px solid #d4d4d0;border-radius:4px;padding:2px 6px;';
+  nameEl.replaceWith(input);
+  input.focus();
+  input.select();
+  let done = false;
+  const finish = function(commit) {
+    if (done) return;
+    done = true;
+    const next = (input.value || '').trim();
+    const restored = document.createElement('div');
+    restored.className = 'dp-name';
+    restored.id = 'dp-name';
+    restored.style.cssText = 'flex:1;min-width:0;';
+    restored.textContent = commit && next ? next : original;
+    input.replaceWith(restored);
+    if (btn) btn.style.display = '';
+    if (commit && next && next !== original) {
+      dpCommitNameChange(next).catch(function(err) {
+        console.error('Company name save failed:', err);
+        alert('Company name updated locally but Airtable sync failed: ' + (err.message || err));
+      });
+    }
+  };
+  input.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter')  { e.preventDefault(); finish(true); }
+    if (e.key === 'Escape') { e.preventDefault(); finish(false); }
+  });
+  input.addEventListener('blur', function() { finish(true); });
+}
+
+async function dpCommitNameChange(nextName) {
+  if (!currentProspect) return;
+  const prev = currentProspect.name || '';
+  currentProspect.name = nextName;
+  // Update the in-memory savedProspects entry (matched by Airtable ID or
+  // company number) and persist to localStorage.
+  try {
+    if (Array.isArray(savedProspects)) {
+      const idx = savedProspects.findIndex(function(x) {
+        if (!x) return false;
+        if (currentProspect.airtableCompanyId && x.airtableCompanyId === currentProspect.airtableCompanyId) return true;
+        if (currentProspect.airtableSiteId    && x.airtableSiteId    === currentProspect.airtableSiteId)    return true;
+        if (currentProspect.number            && String(x.number) === String(currentProspect.number))       return true;
+        return false;
+      });
+      if (idx !== -1) {
+        savedProspects[idx].name = nextName;
+        localStorage.setItem('nova_prospects_v2', JSON.stringify(savedProspects));
+      }
+    }
+  } catch (e) { /* localStorage may throw on quota; non-fatal */ }
+  // Mirror to Airtable Companies and any linked Sites record. Patches
+  // route through the Worker's /airtable passthrough (no AT token in the
+  // browser). Both PATCH calls fire in parallel; failures throw.
+  const companyId = currentProspect.airtableCompanyId || '';
+  const siteId    = currentProspect.airtableSiteId    || '';
+  const patches = [];
+  if (companyId) {
+    patches.push(fetch(AT_COMPANIES_URL + '/' + encodeURIComponent(companyId), {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ fields: { [_AT_COMPANY_NAME_FIELD_ID]: nextName }, typecast: true })
+    }));
+  }
+  if (siteId) {
+    patches.push(fetch(AT_SITES_URL + '/' + encodeURIComponent(siteId), {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ fields: { [_AT_SITE_COMPANY_NAME_FIELD_ID]: nextName }, typecast: true })
+    }));
+  }
+  if (!patches.length) return; // no Airtable IDs yet (locally-only prospect)
+  const results = await Promise.all(patches);
+  const failed = results.find(function(r) { return !r.ok; });
+  if (failed) {
+    // Roll back the in-memory name so the next attempt re-applies cleanly.
+    currentProspect.name = prev;
+    throw new Error('Airtable PATCH returned HTTP ' + failed.status);
+  }
+  // Refresh the pipeline cache so the SAVED list shows the new name.
+  try { fetchSavedPipelineCache(); } catch (_) {}
+}
+
 async function saveCurrentProspect() {
   if (!currentProspect) { alert('No prospect selected.'); return; }
-  const roofArea = parseFloat(document.getElementById('dp-roof').value) || 0;
+  const roofAreaRaw = parseFloat(document.getElementById('dp-roof').value);
   const sector = document.getElementById('dp-sector').value;
-  const address = document.getElementById('dp-address').value;
   const refNum = 'NOV-' + (Math.floor(Math.random()*90000)+10000);
 
   const phoneEl = document.getElementById('dp-phone');
   const websiteEl = document.getElementById('dp-website');
   const trackEl = document.getElementById('dp-track');
+  // Read-modify-write defence: every form field falls back to the value
+  // already on currentProspect when the input is empty, so a panel that
+  // hasn't fully hydrated yet (or a field the surveyor never touched)
+  // never overwrites a populated Airtable record with a blank string.
+  const keep = function(formVal, currentVal) {
+    var v = (formVal == null) ? '' : String(formVal).trim();
+    if (v !== '') return v;
+    if (currentVal != null && String(currentVal).trim() !== '') return String(currentVal).trim();
+    return '';
+  };
+  const formAddress = (document.getElementById('dp-address') || {}).value || '';
+  const formContact = (document.getElementById('dp-contact') || {}).value || '';
+  const formJob     = (document.getElementById('dp-job-title') || {}).value || '';
+  const formEmail   = (document.getElementById('dp-email') || {}).value || '';
   const entry = {
     name: currentProspect.name,
-    address,
+    address:    keep(formAddress, currentProspect.address || currentProspect.siteAddress),
     sector,
-    roofArea,
+    roofArea:   (Number.isFinite(roofAreaRaw) && roofAreaRaw > 0)
+                  ? roofAreaRaw
+                  : (Number(currentProspect.roofArea) || 0),
     number: currentProspect.number,
     refNum,
-    contact: document.getElementById('dp-contact').value.trim(),
-    jobTitle: document.getElementById('dp-job-title').value.trim(),
-    email: document.getElementById('dp-email').value.trim(),
-    phone: phoneEl ? phoneEl.value.trim() : '',
-    website: websiteEl ? websiteEl.value.trim() : '',
+    contact:    keep(formContact, currentProspect.contact),
+    jobTitle:   keep(formJob,     currentProspect.jobTitle),
+    email:      keep(formEmail,   currentProspect.email),
+    phone:      keep(phoneEl   && phoneEl.value,   currentProspect.phone),
+    website:    keep(websiteEl && websiteEl.value, currentProspect.website),
     registeredOffice: currentProspect && currentProspect.registeredOffice ? currentProspect.registeredOffice : '',
-    track: trackEl ? trackEl.value : '',
+    track:      keep(trackEl   && trackEl.value,   currentProspect.track),
     location: (currentProspect.location && typeof currentProspect.location.lat === 'number' && typeof currentProspect.location.lng === 'number') ? currentProspect.location : null,
+    airtableCompanyId: currentProspect.airtableCompanyId || '',
+    airtableSiteId:    currentProspect.airtableSiteId    || '',
     savedAt: new Date().toISOString()
   };
 
@@ -5194,43 +5340,96 @@ function loadSavedFromCache(recordId) {
   // reset per-prospect email state so the published-email block doesn't carry stale data.
   _resetPerProspectEmailState();
 
+  // localStorage fallback. Pipeline cache is the primary source, but any
+  // field absent from Airtable (older save shapes, partial cache) falls
+  // through to the local entry keyed by the matching Airtable IDs or by
+  // company number. Empty-string treated as "missing" so we never
+  // overwrite a real value with a blank from the wrong layer.
+  const ls = (function() {
+    try {
+      if (!Array.isArray(savedProspects)) return null;
+      const byCompany = savedProspects.find(function(x) {
+        return x && x.airtableCompanyId && x.airtableCompanyId === p.recordId;
+      });
+      if (byCompany) return byCompany;
+      const bySite = savedProspects.find(function(x) {
+        return x && x.airtableSiteId && p.siteRecordId && x.airtableSiteId === p.siteRecordId;
+      });
+      if (bySite) return bySite;
+      if (p.number) {
+        const byNumber = savedProspects.find(function(x) {
+          return x && x.number && String(x.number) === String(p.number);
+        });
+        if (byNumber) return byNumber;
+      }
+      return null;
+    } catch (e) { return null; }
+  })();
+  const pick = function(cacheVal, lsVal) {
+    if (cacheVal != null && String(cacheVal).trim() !== '') return cacheVal;
+    if (lsVal != null && String(lsVal).trim() !== '') return lsVal;
+    return '';
+  };
+  // Site address (from Sites table) preferred over registered office for
+  // the dp-address slot — site address is what the user actually edits;
+  // RegisteredOffice is the legal address pulled from Companies House.
+  const siteAddrEff = pick(p.siteAddress, ls && ls.address);
+  const addrEff     = siteAddrEff || pick(p.registeredOffice, ls && ls.registeredOffice);
+  const phoneEff    = pick(p.phone, ls && ls.phone);
+  const contactEff  = pick(p.contact, ls && ls.contact);
+  const jobEff      = pick(p.jobTitle, ls && ls.jobTitle);
+  const emailEff    = pick(p.email, ls && ls.email);
+  const websiteEff  = pick(p.website, ls && ls.website);
+  const roofEff     = (p.roofArea && p.roofArea > 0) ? p.roofArea : ((ls && ls.roofArea) || '');
+  const trackEff    = pick(p.track, ls && ls.track);
+
   currentProspect = {
-    name: p.name || '',
-    address: p.registeredOffice || '',
-    number: p.number || '',
+    name: p.name || (ls && ls.name) || '',
+    address: addrEff,
+    number: p.number || (ls && ls.number) || '',
     type: '',
     status: 'active',
-    registeredOffice: p.registeredOffice || '',
-    track: p.track || '',
-    activeSitesCount: p.activeSitesCount || 0
+    registeredOffice: p.registeredOffice || (ls && ls.registeredOffice) || '',
+    siteAddress: siteAddrEff,
+    phone: phoneEff,
+    contact: contactEff,
+    jobTitle: jobEff,
+    email: emailEff,
+    website: websiteEff,
+    track: trackEff,
+    activeSitesCount: p.activeSitesCount || 0,
+    airtableCompanyId: p.recordId || (ls && ls.airtableCompanyId) || '',
+    airtableSiteId:    p.siteRecordId || (ls && ls.airtableSiteId) || ''
   };
   // Restore lat/lng from the Sites-table merge in _fetchSiteLocations, so
   // /footprint can be called without re-running Places lookup.
   if (p.location && typeof p.location.lat === 'number' && typeof p.location.lng === 'number') {
     currentProspect.location = { lat: p.location.lat, lng: p.location.lng };
+  } else if (ls && ls.location && typeof ls.location.lat === 'number' && typeof ls.location.lng === 'number') {
+    currentProspect.location = { lat: ls.location.lat, lng: ls.location.lng };
   }
 
   document.getElementById('welcome-screen').style.display = 'none';
   document.getElementById('proposal-output').style.display = 'none';
   document.getElementById('detail-panel').style.display = 'block';
 
-  document.getElementById('dp-name').textContent = p.name || 'Name unavailable';
+  document.getElementById('dp-name').textContent = currentProspect.name || 'Name unavailable';
   document.getElementById('dp-meta').textContent = _buildDpMeta({ number: p.number, type: '', date_of_creation: '' });
 
   const da = document.getElementById('dp-address');
-  if (da) { da.value = p.registeredOffice || ''; da.style.color = ''; }
+  if (da) { da.value = addrEff; da.style.color = ''; }
   const dpRoof = document.getElementById('dp-roof');
-  if (dpRoof) dpRoof.value = p.roofArea || '';
+  if (dpRoof) dpRoof.value = roofEff;
   const dpContact = document.getElementById('dp-contact');
-  if (dpContact) dpContact.value = p.contact || '';
+  if (dpContact) dpContact.value = contactEff;
   const dpJobTitle = document.getElementById('dp-job-title');
-  if (dpJobTitle) dpJobTitle.value = p.jobTitle || '';
+  if (dpJobTitle) dpJobTitle.value = jobEff;
   const dpEmail = document.getElementById('dp-email');
-  if (dpEmail) dpEmail.value = p.email || '';
+  if (dpEmail) dpEmail.value = emailEff;
   const dpWebsite = document.getElementById('dp-website');
-  if (dpWebsite) dpWebsite.value = p.website || '';
+  if (dpWebsite) dpWebsite.value = websiteEff;
   const dpPhone = document.getElementById('dp-phone');
-  if (dpPhone) dpPhone.value = ''; // Phone is on Sites/Pipeline records, not Companies — left blank
+  if (dpPhone) dpPhone.value = phoneEff;
   const dpSector = document.getElementById('dp-sector');
   if (dpSector) {
     // Map the human-readable sector label back to a key, fallback to warehouse.
